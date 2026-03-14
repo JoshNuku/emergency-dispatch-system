@@ -1,0 +1,27 @@
+.env
+*.exe
+*.dll
+*.so
+*.dylib
+tmp/
+vendor/
+
+# Node
+node_modules/
+.next/
+out/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Swagger generated docs (regenerate with swag init)
+services/*/docs/swagger.json
+services/*/docs/swagger.yaml
+services/*/docs/docs.go

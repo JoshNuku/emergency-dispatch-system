@@ -1,0 +1,771 @@
+\documentclass[12pt,a4paper]{report}
+\usepackage[T1]{fontenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fancyhdr}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{lmodern}
+
+% Code listing styling
+\lstset{
+	basicstyle=\ttfamily\scriptsize,
+	breaklines=true,
+	commentstyle=\itshape\color{gray},
+	keywordstyle=\bfseries\color{blue},
+	stringstyle=\color{red},
+	backgroundcolor=\color{lightgray!10},
+	frame=single,
+	captionpos=b,
+	showstringspaces=false
+}
+
+% TikZ Libraries and Global Styles
+\usetikzlibrary{shapes,arrows,positioning,fit,backgrounds}
+\tikzset{
+	>=stealth,
+	frontend/.style={rectangle, draw, fill=green!20, minimum width=4cm, minimum height=0.8cm, font=\small\sffamily\bfseries, align=center, inner sep=6pt},
+	microservice/.style={rectangle, draw, fill=blue!20, minimum width=2.8cm, minimum height=0.8cm, font=\small\sffamily, align=center, inner sep=6pt},
+	gateway/.style={rectangle, draw, fill=teal!25, minimum width=3.2cm, minimum height=0.8cm, font=\small\sffamily\bfseries, align=center, inner sep=6pt},
+	database/.style={cylinder, draw, fill=orange!20, shape aspect=0.4, minimum width=2.4cm, minimum height=1.2cm, font=\footnotesize\sffamily, align=center, inner sep=6pt},
+	mq/.style={rectangle, draw, fill=purple!20, minimum width=4cm, minimum height=0.8cm, font=\small\sffamily\bfseries, align=center, inner sep=6pt},
+	erbox/.style={rectangle, draw, inner sep=10pt, align=left, font=\small\sffamily}
+}
+
+% Header and Footer
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{CPEN 421 Phase 1}
+\lhead{System Design}
+\cfoot{\thepage}
+
+\renewcommand{\arraystretch}{1.3}
+
+\begin{document}
+
+% ============================================================================
+% CUSTOM TITLE PAGE
+% ============================================================================
+\begin{titlepage}
+	\begin{center}
+		\vspace*{1cm}
+
+		\includegraphics[width=0.3\textwidth]{logo.png}\\[1cm]
+
+		{\Large \textbf{UNIVERSITY OF GHANA}}\\[0.2cm]
+		{\large School of Engineering Sciences}\\[0.2cm]
+		{\large Department of Computer Engineering}\\[1cm]
+
+		\rule{\linewidth}{0.5mm} \\[0.4cm]
+		{\huge \textbf{National Emergency Response and Dispatch Platform}} \\[0.2cm]
+		{\large \textbf{Phase 1: System Design}} \\[0.4cm]
+		\rule{\linewidth}{0.5mm} \\[1.5cm]
+
+		{\Large \textbf{CPEN 421: Mobile and Web Design Architecture}}\\[1cm]
+
+		{\large \textbf{Group 5}}\\[0.5cm]
+
+		\begin{tabular}{ll}
+			\textbf{Joshua Nuku} & 11252857 \\
+			\textbf{Jeffery Quansah} & 11252855 \\
+		\end{tabular}
+
+		\vfill
+
+		{\large \textbf{Lecturer:} Dr. Gifty Osei}\\
+		{\large \textbf{TA:} Nathaniel Adika}\\[0.8cm]
+
+		\large \today
+
+	\end{center}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+% ============================================================================
+% CHAPTER 1: ARCHITECTURE
+% ============================================================================
+\chapter{System Architecture}
+
+\section{Microservices Overview}
+
+The system consists of five backend services plus a web frontend. Services communicate through HTTP REST APIs, RabbitMQ event streams, and WebSocket channels for live updates. The Realtime Gateway validates JWT tokens locally using the shared \texttt{JWT\_SECRET}.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=1.6cm and 0.5cm]
+
+	% --- Nodes ---
+	\node[frontend] (frontend) {Frontend (Web)};
+
+	\node[below=1.8cm of frontend] (center_ref) {};
+	\node[microservice, left=1.4cm of center_ref] (auth) {Auth\\(8081)};
+	\node[microservice, left=0.2cm of center_ref] (incident) {Incident\\(8082)};
+	\node[microservice, right=1.0cm of center_ref] (dispatch) {Dispatch\\(8083)};
+	\node[microservice, right=2.2cm of center_ref] (analytics) {Analytics\\(8084)};
+	\node[gateway, below=1.8cm of center_ref] (realtime) {Realtime Gateway\\(8085)};
+
+	\node[database, below=1.9cm of auth] (db1) {DB};
+	\node[database, below=1.9cm of incident] (db2) {DB + GIS};
+	\node[database, below=1.9cm of dispatch] (db3) {DB + GIS};
+	\node[database, below=1.9cm of analytics] (db4) {DB};
+
+	\path (db2) -- (db3) node[midway, below=2.4cm] (mq_pos) {};
+	\node[mq] (mq) at (mq_pos) {RabbitMQ (events exchange)};
+
+	% --- Connections ---
+	\draw[->, thick] (frontend.south west) -- node[midway, fill=white, font=\scriptsize] {HTTP} (auth.north);
+	\draw[->, thick] (frontend.south) -- node[midway, fill=white, font=\scriptsize] {HTTP} (incident.north);
+	\draw[->, thick] (frontend.south east) -- node[midway, fill=white, font=\scriptsize] {HTTP} (dispatch.north);
+	\draw[->, thick] (frontend.east) to[out=350,in=80] node[midway, right, fill=white, font=\scriptsize] {HTTP} (analytics.north);
+	\draw[->, very thick, color=teal!70!black] (frontend.south) to[out=270,in=90] node[midway, right, fill=white, font=\scriptsize] {WebSocket} (realtime.north);
+
+	\draw[->, thick] (incident) -- node[midway, fill=white, font=\scriptsize] {dispatch req} (dispatch);
+
+	\draw[->, thick] (auth) -- node[midway, right, font=\scriptsize] {SQL} (db1);
+	\draw[->, thick] (incident) -- node[midway, right, font=\scriptsize] {SQL+GIS} (db2);
+	\draw[->, thick] (dispatch) -- node[midway, right, font=\scriptsize] {SQL+GIS} (db3);
+	\draw[->, thick] (analytics) -- node[midway, right, font=\scriptsize] {SQL} (db4);
+
+	\draw[->, dashed, thick] (incident.south west) |- node[near start, left, font=\scriptsize] {publish} (mq.west);
+	\draw[->, dashed, thick] (dispatch.south east) |- node[near start, right, font=\scriptsize] {publish} (mq.east);
+	\draw[->, dashed, thick] (mq.south) -| node[pos=0.25, below, font=\scriptsize] {consume} (analytics.south east);
+	\draw[->, dashed, very thick, color=teal!70!black] (mq.south) -- node[midway, right, font=\scriptsize] {consume} (realtime.south);
+
+\end{tikzpicture}
+\caption{High-level architecture (solid=HTTP, teal=WebSocket, dashed=async events)}
+\end{figure}
+
+\subsection{Services}
+\textbf{Auth (8081):} User registration, login, JWT tokens, RBAC\\
+\textbf{Incident (8082):} Create incidents, manage stations, PostGIS nearest-neighbor dispatch\\
+\textbf{Dispatch (8083):} Vehicle tracking, GPS locations, availability querying\\
+\textbf{Analytics (8084):} Response time analysis, metrics aggregation\\
+\textbf{Realtime Gateway (8085):} JWT-protected WebSocket hub, RabbitMQ consumer, push-only live broadcast
+
+\newpage
+
+% ============================================================================
+% CHAPTER 2: DATABASE SCHEMA
+% ============================================================================
+\chapter{Database Design}
+
+\section{Schema Overview}
+
+Four PostgreSQL databases with PostGIS enabling spatial queries. The Realtime Gateway is stateless and does not own a database.
+
+\begin{table}[H]
+\centering\small
+\caption{Database Services}
+\begin{tabular}{|l|l|}
+\hline
+\textbf{Service} & \textbf{Database} \\
+\hline
+Auth & users, refresh\_tokens \\
+\hline
+Incident & incidents, stations (PostGIS location geometry) \\
+\hline
+Dispatch & vehicles, location\_histories \\
+\hline
+Analytics & incident\_metrics, hospital\_capacity\_logs \\
+\hline
+Realtime Gateway & none (in-memory WebSocket sessions) \\
+\hline
+\end{tabular}
+\end{table}
+
+\section{ER Diagrams}
+
+\subsection{Authentication Service}
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}
+	\node[erbox] (users) {
+		\textbf{users} \\
+		\hline
+		\rule{0pt}{2.5ex}id: UUID (PK) \\
+		email: VARCHAR \\
+		password\_hash \\
+		name \\
+		role \\
+		station\_id (nullable) \\
+		created\_at
+	};
+
+	\node[erbox, right=4cm of users] (tokens) {
+		\textbf{refresh\_tokens} \\
+		\hline
+		\rule{0pt}{2.5ex}id: UUID (PK) \\
+		user\_id: UUID (FK) \\
+		token \\
+		expires\_at \\
+		created\_at
+	};
+
+	\draw[<->, thick] (users) -- node[midway, above=3pt, font=\small] {1:N} node[midway, below=3pt, font=\scriptsize] {FK: user\_id} (tokens);
+\end{tikzpicture}
+\caption{Auth Service ER Diagram}
+\end{figure}
+
+\subsection{Incident Service}
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}
+	\node[erbox] (stations) {
+		\textbf{stations} \\
+		\hline
+		\rule{0pt}{2.5ex}id: UUID (PK) \\
+		name, station\_type \\
+		location: POINT \\
+		capacity, available\_units \\
+		address, phone
+	};
+
+	\node[erbox, right=4cm of stations] (incidents) {
+		\textbf{incidents} \\
+		\hline
+		\rule{0pt}{2.5ex}id: UUID (PK) \\
+		citizen\_name, citizen\_phone \\
+		incident\_type \\
+		status \\
+		latitude, longitude \\
+		assigned\_unit\_id, assigned\_unit\_type
+	};
+
+	\draw[<->, thick] (stations) -- node[midway, above=3pt, font=\small] {1:N} node[midway, below=3pt, font=\scriptsize] {assignment by nearest station} (incidents);
+\end{tikzpicture}
+\caption{Incident Service ER Diagram (PostGIS spatial indexes)}
+\end{figure}
+
+\newpage
+
+\subsection{Dispatch Service}
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}
+	\node[erbox] (vehicles) {
+		\textbf{vehicles} \\
+		\hline
+		\rule{0pt}{2.5ex}id: UUID (PK) \\
+		station\_id, station\_type \\
+		vehicle\_type \\
+		license\_plate, driver\_id \\
+		status \\
+		latitude, longitude
+	};
+
+	\node[erbox, right=4cm of vehicles] (locations) {
+		\textbf{location\_histories} \\
+		\hline
+		\rule{0pt}{2.5ex}id: UUID (PK) \\
+		vehicle\_id: UUID (FK) \\
+		latitude, longitude \\
+		recorded\_at
+	};
+
+	\draw[<->, thick] (vehicles) -- node[midway, above=3pt, font=\small] {1:N} node[midway, below=3pt, font=\scriptsize] {FK: vehicle\_id} (locations);
+\end{tikzpicture}
+\caption{Dispatch Service ER Diagram}
+\end{figure}
+
+\subsection{Analytics Service}
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}
+	\node[erbox] (metrics) {
+		\textbf{incident\_metrics} \\
+		\hline
+		\rule{0pt}{2.5ex}id: UUID (PK) \\
+		incident\_id (unique) \\
+		incident\_type, region \\
+		response\_time\_seconds \\
+		resolution\_time\_seconds
+	};
+
+	\node[erbox, right=4cm of metrics] (rt) {
+		\textbf{hospital\_capacity\_logs} \\
+		\hline
+		\rule{0pt}{2.5ex}id: UUID (PK) \\
+		hospital\_id \\
+		available\_beds \\
+		total\_beds \\
+		timestamp
+	};
+
+	\draw[<->, thick] (metrics) -- node[midway, above=3pt, font=\small] {dashboard aggregation} node[midway, below=3pt, font=\scriptsize] {regional and capacity analytics} (rt);
+\end{tikzpicture}
+\caption{Analytics Service ER Diagram}
+\end{figure}
+
+\section{Key Tables}
+
+\begin{lstlisting}[language=SQL, caption=Users Table]
+CREATE TABLE users (
+	id UUID PRIMARY KEY,
+	name VARCHAR(255) NOT NULL,
+	email VARCHAR(255) UNIQUE NOT NULL,
+	password_hash VARCHAR(255) NOT NULL,
+	role VARCHAR(50) CHECK (role IN ('system_admin','hospital_admin','police_admin','fire_admin','ambulance_driver')),
+	station_id UUID NULL
+);
+\end{lstlisting}
+
+\begin{lstlisting}[language=SQL, caption=Incidents Table]
+CREATE TABLE incidents (
+	id UUID PRIMARY KEY,
+	citizen_name VARCHAR(255) NOT NULL,
+	citizen_phone VARCHAR(20),
+	incident_type VARCHAR(50) NOT NULL,
+	status VARCHAR(50) DEFAULT 'created',
+	latitude DOUBLE PRECISION NOT NULL,
+	longitude DOUBLE PRECISION NOT NULL,
+	assigned_unit_id UUID,
+	assigned_unit_type VARCHAR(50)
+);
+\end{lstlisting}
+
+\newpage
+
+% ============================================================================
+% CHAPTER 3: API SPECIFICATIONS
+% ============================================================================
+\chapter{API Endpoints}
+
+\section{Authentication Service}
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{|l|l|p{7cm}|}
+\hline
+\textbf{Endpoint} & \textbf{Method} & \textbf{Purpose} \\
+\hline
+/auth/register & POST & Register new user \\
+\hline
+/auth/login & POST & Authenticate and return JWT \\
+\hline
+/auth/refresh-token & POST & Refresh access token \\
+\hline
+/auth/profile & GET & Get current user profile \\
+\hline
+/auth/users & GET & List users (system\_admin only) \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{lstlisting}[language=JSON, caption=Login Request/Response]
+// Request
+{"email": "user@example.com", "password": "pass"}
+
+// Response (200)
+{
+  "access_token": "eyJ...",
+  "refresh_token": "550e8400-...",
+	"expires_in": 900
+}
+\end{lstlisting}
+
+\newpage
+\section{Incident Service}
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{|l|l|p{7cm}|}
+\hline
+\textbf{Endpoint} & \textbf{Method} & \textbf{Purpose} \\
+\hline
+/incidents & POST & Create new incident \\
+\hline
+/incidents & GET & List incidents (filtered) \\
+\hline
+/incidents/open & GET & List open incidents \\
+\hline
+/incidents/:id & GET & Get incident by ID \\
+\hline
+/incidents/:id/status & PUT & Update incident status \\
+\hline
+/incidents/:id/assign & PUT & Manually assign unit \\
+\hline
+/stations & POST & Create station \\
+\hline
+/stations & GET & List all stations \\
+\hline
+/stations/nearest & GET & Find nearest station by lat/lng \\
+\hline
+/stations/:id & GET & Get station by ID \\
+\hline
+/stations/:id & PUT & Update station \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{lstlisting}[language=JSON, caption=Create Incident]
+// POST /incidents
+{
+	"citizen_name": "Ama Mensah",
+	"citizen_phone": "+233200000000",
+  "incident_type": "medical",
+	"latitude": 5.6296,
+	"longitude": -0.1692,
+	"notes": "Patient with chest pain"
+}
+
+// Response (201)
+{"incident": {"id": "...", "incident_type": "medical", "status": "created"}}
+\end{lstlisting}
+
+\section{Dispatch Service}
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{|l|l|p{7cm}|}
+\hline
+\textbf{Endpoint} & \textbf{Method} & \textbf{Purpose} \\
+\hline
+/vehicles/register & POST & Register a vehicle \\
+\hline
+/vehicles & GET & List vehicles by status \\
+\hline
+/vehicles/:id & GET & Get vehicle details \\
+\hline
+/vehicles/:id/location & GET & Get latest vehicle location \\
+\hline
+/vehicles/:id/location & POST & Update vehicle GPS \\
+\hline
+/vehicles/:id/status & PUT & Update vehicle status \\
+\hline
+/vehicles/available & GET & Available vehicles for station \\
+\hline
+\end{tabular}
+\end{table}
+
+\section{Analytics Service}
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{|l|l|p{7cm}|}
+\hline
+\textbf{Endpoint} & \textbf{Method} & \textbf{Purpose} \\
+\hline
+/analytics/response-times & GET & Response time analytics \\
+\hline
+/analytics/incidents-by-region & GET & Incident distribution by region \\
+\hline
+/analytics/resource-utilization & GET & Responder utilization metrics \\
+\hline
+/analytics/hospital-capacity & GET & Hospital capacity trend \\
+\hline
+/analytics/dashboard & GET & Aggregated dashboard summary \\
+\hline
+\end{tabular}
+\end{table}
+
+\section{Realtime Gateway Service}
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{|l|l|p{7cm}|}
+\hline
+\textbf{Endpoint} & \textbf{Method} & \textbf{Purpose} \\
+\hline
+/ws?token=JWT & WebSocket & Upgrade connection, authenticate, subscribe to live events \\
+\hline
+/health & GET & Health check for deployment probes \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{lstlisting}[language=JSON, caption=WebSocket Push Message]
+{
+	"type": "incident.created",
+	"payload": "{\"event\":\"incident.created\",\"data\":{...},\"timestamp\":\"2026-03-12T14:35:00Z\"}"
+}
+\end{lstlisting}
+
+\newpage
+
+% ============================================================================
+% CHAPTER 4: MESSAGE QUEUE
+% ============================================================================
+\chapter{Asynchronous Communication}
+
+\section{RabbitMQ Configuration}
+
+Topic exchange \texttt{emergency.events} with dedicated queues consumed by Analytics and Realtime Gateway:
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{|l|l|l|l|}
+\hline
+\textbf{Queue} & \textbf{Exchange} & \textbf{Binding} & \textbf{Consumer} \\
+\hline
+analytics.events & emergency.events & incident.created, incident.dispatched, incident.status\_changed, incident.resolved, vehicle.location\_updated, vehicle.status\_changed & Analytics Service \\
+\hline
+realtime.broadcast & emergency.events & incident.created, incident.dispatched, incident.status\_changed, vehicle.location\_updated, vehicle.status\_changed & Realtime Gateway \\
+\hline
+\end{tabular}
+\end{table}
+
+\section{Event Types}
+
+\subsection{Incident Events}
+Published by Incident Service:
+\begin{itemize}
+	\item \textbf{incident.created}: New emergency reported
+	\item \textbf{incident.dispatched}: Responders assigned
+	\item \textbf{incident.status\_changed}: Status transition
+\end{itemize}
+
+\subsection{Vehicle Events}
+Published by Dispatch Service:
+\begin{itemize}
+	\item \textbf{vehicle.location\_updated}: GPS location change
+	\item \textbf{vehicle.status\_changed}: Availability change
+\end{itemize}
+
+\subsection{Realtime Flow}
+The Realtime Gateway consumes selected routing keys from RabbitMQ and broadcasts a two-field envelope to all connected authenticated clients: \texttt{\{"type": routingKey, "payload": rawEventJSON\}}.
+
+\begin{lstlisting}[language=JSON, caption=Sample Event Message]
+{
+	"event": "incident.created",
+	"data": {
+	"id": "650e8400-...",
+	"incident_type": "medical",
+	"latitude": 5.6296,
+	"longitude": -0.1692,
+	"status": "dispatched"
+	},
+	"timestamp": "2026-03-12T14:35:00Z"
+}
+\end{lstlisting}
+
+\newpage
+
+% ============================================================================
+% CHAPTER 5: EVENT MESSAGE STRUCTURES
+% ============================================================================
+\chapter{Event Message Structures}
+
+\section{Incident Events}
+
+\subsection{incident.created}
+\begin{lstlisting}[language=JSON, caption=incident.created Event]
+{
+	"event": "incident.created",
+	"data": {
+		"id": "650e8400-e29b-41d4-a716-446655440100",
+		"citizen_name": "Ama Mensah",
+		"incident_type": "medical",
+		"latitude": 5.6296,
+		"longitude": -0.1692,
+		"status": "dispatched"
+	},
+	"timestamp": "2026-03-12T14:35:00Z"
+}
+\end{lstlisting}
+
+\subsection{incident.dispatched}
+\begin{lstlisting}[language=JSON, caption=incident.dispatched Event]
+{
+	"event": "incident.dispatched",
+	"data": {
+		"incident": {
+			"id": "650e8400-e29b-41d4-a716-446655440100",
+			"incident_type": "medical",
+			"assigned_unit_type": "hospital"
+		},
+		"station_id": "750e8400-e29b-41d4-a716-446655440200",
+		"vehicle_id": "850e8400-e29b-41d4-a716-446655440300"
+	},
+	"timestamp": "2026-03-12T14:35:15Z"
+}
+\end{lstlisting}
+
+\newpage
+\section{Vehicle Events}
+
+\subsection{vehicle.location\_updated}
+\begin{lstlisting}[language=JSON, caption=vehicle.location\_updated Event]
+{
+	"event": "vehicle.location_updated",
+	"data": {
+		"vehicle_id": "850e8400-e29b-41d4-a716-446655440300",
+		"incident_id": "650e8400-e29b-41d4-a716-446655440100",
+		"latitude": 5.6320,
+		"longitude": -0.1710,
+		"status": "en_route"
+	},
+	"timestamp": "2026-03-12T14:40:15Z"
+}
+\end{lstlisting}
+
+\section{Realtime WebSocket Messages}
+
+\subsection{Raw Broadcast Envelope}
+\begin{lstlisting}[language=JSON, caption=Gateway Broadcast Message]
+{
+	"type": "vehicle.location_updated",
+	"payload": "{\"event\":\"vehicle.location_updated\",\"data\":{\"vehicle_id\":\"850e...\",\"latitude\":5.632,\"longitude\":-0.171},\"timestamp\":\"2026-03-12T14:40:15Z\"}"
+}
+\end{lstlisting}
+
+\section{JSON Schema (Common Envelope)}
+
+\begin{lstlisting}[language=JSON, caption=Event JSON Schema]
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"type": "object",
+	"properties": {
+		"event": {"type": "string"},
+		"data": {"type": "object"},
+		"timestamp": {"type": "string", "format": "date-time"},
+		"additional": {"type": ["string", "number", "boolean", "null", "object", "array"]}
+	},
+	"required": ["event", "data", "timestamp"],
+	"additionalProperties": true
+}
+\end{lstlisting}
+
+\newpage
+
+% ============================================================================
+% CHAPTER 6: SECURITY & DESIGN DECISIONS
+% ============================================================================
+\chapter{Security and Design Rationale}
+
+\section{Authentication and Authorization}
+
+\textbf{JWT Tokens:} Access tokens valid 15 minutes (short-lived, stateless)
+
+\textbf{Refresh Tokens:} Valid 7 days (stored in DB, enables revocation)
+
+\textbf{Password Security:} bcrypt with 12 rounds
+
+\textbf{Roles (RBAC):} system\_admin, hospital\_admin, police\_admin, fire\_admin, ambulance\_driver
+
+\textbf{WebSocket Security:} JWT is required as a query token on \texttt{/ws}; gateway validates HMAC signature and claims then accepts or rejects the upgrade request. After connection, incoming client messages are ignored (push-only channel).
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{|l|c|c|c|c|c|}
+\hline
+\textbf{Capability} & \textbf{System Admin} & \textbf{Hospital Admin} & \textbf{Police Admin} & \textbf{Fire Admin} & \textbf{Ambulance Driver} \\
+\hline
+Create Incident & \checkmark & \checkmark & \checkmark & \checkmark & N/A \\
+\hline
+View All Incidents & \checkmark & N/A & N/A & N/A & N/A \\
+\hline
+Assign Responders & \checkmark & \checkmark & \checkmark & \checkmark & N/A \\
+\hline
+View Analytics & \checkmark & \checkmark & \checkmark & \checkmark & N/A \\
+\hline
+Receive Live WebSocket Feed (valid JWT required) & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark \\
+\hline
+System Config & \checkmark & N/A & N/A & N/A & N/A \\
+\hline
+\end{tabular}
+\end{table}
+
+\section{Architecture Decisions}
+
+\subsection{Why Microservices?}
+Independent scaling, deployment autonomy, fault isolation, technology flexibility
+
+\subsection{Why PostgreSQL + PostGIS?}
+Efficient geospatial queries for nearest-responder selection, ACID consistency for critical data, GORM integration in Go
+
+\subsection{Why RabbitMQ?}
+Proven reliability, topic exchange for flexible routing, message persistence, supports priority queues for critical incidents
+
+\subsection{Why WebSocket Gateway?}
+Single managed entry point for long-lived browser connections, reduced coupling to core services, and centralized fan-out of RabbitMQ events
+
+\section{Trade-offs}
+
+\textbf{Sync vs Async:} Critical incident dispatch uses HTTP (must succeed immediately); analytics and telemetry use RabbitMQ (eventual consistency)
+
+\textbf{Dedicated Databases:} Loose coupling and independent evolution vs. complexity of distributed transactions (handled via saga pattern)
+
+\textbf{Stateless Access Tokens:} Fast validation without DB queries vs. stored refresh tokens for revocation capability
+
+\textbf{Gateway Message Format Trade-off:} Broadcasting the raw event JSON as a string keeps gateway logic simple, but clients must parse nested JSON payloads
+
+\newpage
+
+% ============================================================================
+% CHAPTER 7: DEPLOYMENT
+% ============================================================================
+\chapter{Deployment Architecture}
+
+\section{Development Environment}
+
+\begin{lstlisting}[language=bash, caption=Service Startup]
+# Start all backend services
+go run services/auth/cmd/main.go &
+go run services/incident/cmd/main.go &
+go run services/dispatch/cmd/main.go &
+go run services/analytics/cmd/main.go &
+go run services/realtime-gateway/cmd/main.go &
+
+# Start frontend
+npm run dev --prefix web
+\end{lstlisting}
+
+\section{Configuration}
+
+All services read from \texttt{.env}:
+
+\begin{lstlisting}[caption=Environment Variables]
+AUTH_DB_HOST=localhost
+AUTH_DB_PORT=5432
+AUTH_DB_USER=postgres
+AUTH_DB_PASSWORD=postgres
+AUTH_DB_NAME=auth_db
+INCIDENT_DB_HOST=localhost
+INCIDENT_DB_PORT=5432
+INCIDENT_DB_USER=postgres
+INCIDENT_DB_PASSWORD=postgres
+INCIDENT_DB_NAME=incident_db
+DISPATCH_DB_HOST=localhost
+DISPATCH_DB_PORT=5432
+DISPATCH_DB_USER=postgres
+DISPATCH_DB_PASSWORD=postgres
+DISPATCH_DB_NAME=dispatch_db
+ANALYTICS_DB_HOST=localhost
+ANALYTICS_DB_PORT=5432
+ANALYTICS_DB_USER=postgres
+ANALYTICS_DB_PASSWORD=postgres
+ANALYTICS_DB_NAME=analytics_db
+RABBITMQ_URL=amqp://guest:guest@localhost:5672/
+JWT_SECRET=your-secret-key
+AUTH_SERVICE_PORT=8081
+INCIDENT_SERVICE_PORT=8082
+DISPATCH_SERVICE_PORT=8083
+ANALYTICS_SERVICE_PORT=8084
+REALTIME_PORT=8085
+DISPATCH_SERVICE_URL=http://localhost:8083
+FRONTEND_PORT=3000
+\end{lstlisting}
+
+\section{Service Bootstrap Sequence}
+
+\begin{enumerate}
+	\item Load environment configuration from .env
+	\item Connect to PostgreSQL database (stateful services only)
+	\item Enable PostGIS extension (spatial services)
+	\item Auto-migrate database schemas via GORM
+	\item Seed demo data (optional)
+	\item Initialize HTTP routes and WebSocket hub (Realtime Gateway)
+	\item Connect event consumers to RabbitMQ (Analytics and Realtime Gateway)
+	\item Start Gin server and listen for HTTP/WebSocket requests
+\end{enumerate}
+
+\end{document}
