@@ -1,0 +1,273 @@
+@import "tailwindcss";
+@import "mapbox-gl/dist/mapbox-gl.css";
+
+/* ── Figma-inspired dark palette ───────────────────────────────────── */
+:root {
+  --background: #1e1e1e;
+  --foreground: #e8eaed;
+  --panel: #2c2c2c;
+  --panel-strong: #383838;
+  --panel-soft: #323232;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.14);
+  --accent: #0d99ff;
+  --accent-soft: rgba(13, 153, 255, 0.14);
+  --signal: #14ae5c;
+  --warning: #ffcd29;
+  --danger: #f24822;
+  --muted: #8c8c8c;
+  --sidebar: #2c2c2c;
+  --nav-hover: rgba(255, 255, 255, 0.06);
+  --nav-active: rgba(13, 153, 255, 0.12);
+}
+
+html[data-theme="light"] {
+  --background: #f5f5f5;
+  --foreground: #1e1e1e;
+  --panel: #ffffff;
+  --panel-strong: #ffffff;
+  --panel-soft: #f0f0f0;
+  --line: rgba(0, 0, 0, 0.08);
+  --line-strong: rgba(0, 0, 0, 0.14);
+  --accent: #0c8ce9;
+  --accent-soft: rgba(12, 140, 233, 0.10);
+  --signal: #14ae5c;
+  --warning: #c48f0e;
+  --danger: #d94225;
+  --muted: #6e6e6e;
+  --sidebar: #f0f0f0;
+  --nav-hover: rgba(0, 0, 0, 0.04);
+  --nav-active: rgba(12, 140, 233, 0.10);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-panel: var(--panel);
+  --color-panel-strong: var(--panel-strong);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-signal: var(--signal);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-muted: var(--muted);
+  --color-sidebar: var(--sidebar);
+  --color-nav-hover: var(--nav-hover);
+  --color-nav-active: var(--nav-active);
+  --font-sans: var(--font-body);
+  --font-display: var(--font-body);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body), "Inter", system-ui, sans-serif;
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+::selection {
+  background: rgba(13, 153, 255, 0.28);
+}
+
+/* ── Panels ────────────────────────────────────────────────────────── */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+
+.panel-strong {
+  background: var(--panel-strong);
+  border: 1px solid var(--line);
+}
+
+.panel-soft {
+  background: var(--panel-soft);
+  border: 1px solid var(--line);
+}
+
+/* ── Sidebar ───────────────────────────────────────────────────────── */
+.sidebar-surface {
+  background: var(--sidebar);
+  border-right: 1px solid var(--line);
+}
+
+/* ── Chips / tags ──────────────────────────────────────────────────── */
+.chip {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+}
+
+.chip-active {
+  border-color: var(--accent);
+  background: var(--nav-active);
+  color: var(--accent);
+}
+
+/* ── Display font ──────────────────────────────────────────────────── */
+.display-font {
+  font-family: var(--font-body), "Inter", system-ui, sans-serif;
+}
+
+/* ── Collapsible sections ──────────────────────────────────────────── */
+.section-collapse {
+  overflow: hidden;
+  transition: grid-template-rows 200ms ease, opacity 160ms ease;
+}
+
+.section-collapse[data-open="true"] {
+  display: grid;
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.section-collapse[data-open="false"] {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+}
+
+.section-collapse-inner {
+  min-height: 0;
+}
+
+/* ── Focus ring ────────────────────────────────────────────────────── */
+.focus-ring:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-radius: 8px;
+}
+
+/* ── Nav items (Figma-style) ───────────────────────────────────────── */
+.figma-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--muted);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  text-align: left;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.figma-nav-item:hover {
+  background: var(--nav-hover);
+  color: var(--foreground);
+}
+
+.figma-nav-item.active {
+  background: var(--nav-active);
+  color: var(--accent);
+  font-weight: 500;
+}
+
+/* ── Sidebar section label ─────────────────────────────────────────── */
+.sidebar-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  padding: 16px 10px 6px;
+}
+
+/* ── Inline stat ───────────────────────────────────────────────────── */
+.stat-inline {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.stat-inline .stat-value {
+  font-weight: 600;
+  color: var(--foreground);
+  font-size: 14px;
+}
+
+/* ── Scrollbar ─────────────────────────────────────────────────────── */
+.app-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.app-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+}
+
+.app-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+html[data-theme="light"] .app-scroll::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+/* ── Mapbox popup ──────────────────────────────────────────────────── */
+.mapboxgl-popup-content {
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--foreground);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* ── Hairline ──────────────────────────────────────────────────────── */
+.hairline {
+  border-color: var(--line-strong);
+}
+
+/* ── Hover lift (subtler) ──────────────────────────────────────────── */
+.hover-lift {
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* ── Smooth theme transition ───────────────────────────────────────── */
+html,
+body,
+body * {
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+/* ── Figma gradient cards ──────────────────────────────────────────── */
+.group:hover .group-hover\:scale-105 {
+  transform: scale(1.05);
+}
+
+/* Ensure select/option has readable bg in dark mode */
+select option {
+  background: var(--panel-strong);
+  color: var(--foreground);
+}
