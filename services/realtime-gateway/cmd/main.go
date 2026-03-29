@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -42,12 +43,36 @@ func main() {
 	}
 
 	r := gin.Default()
-	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:3000"},
+	originEnv := strings.TrimSpace(os.Getenv("CORS_ALLOW_ORIGINS"))
+	origins := []string{"http://localhost:3000"}
+	if originEnv != "" {
+		parts := strings.Split(originEnv, ",")
+		parsed := make([]string, 0, len(parts))
+		for _, p := range parts {
+			t := strings.TrimSpace(p)
+			if t != "" {
+				parsed = append(parsed, t)
+			}
+		}
+		if len(parsed) > 0 {
+			origins = parsed
+		}
+	}
+
+	corsCfg := cors.Config{
+		AllowOrigins:     origins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		AllowCredentials: true,
-	}))
+	}
+	for _, o := range origins {
+		if o == "*" {
+			corsCfg.AllowAllOrigins = true
+			corsCfg.AllowCredentials = false
+			break
+		}
+	}
+	r.Use(cors.New(corsCfg))
 
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok", "service": "realtime-gateway"})

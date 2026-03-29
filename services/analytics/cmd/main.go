@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -17,6 +18,7 @@ import (
 	"emergency-dispatch/services/analytics/internal/mq"
 	"emergency-dispatch/services/analytics/internal/repository"
 	"emergency-dispatch/services/analytics/internal/routes"
+	"emergency-dispatch/services/analytics/internal/seed"
 )
 
 func main() {
@@ -34,7 +36,7 @@ func main() {
 	db.AutoMigrate(&models.IncidentMetric{}, &models.HospitalCapacityLog{})
 
 	repo := repository.NewAnalyticsRepository(db)
-	handler := handlers.NewAnalyticsHandler(repo)
+	handler := handlers.NewAnalyticsHandler(repo, cfg.DispatchServiceURL)
 
 	// Start RabbitMQ consumer in background
 	rabbitURL := os.Getenv("RABBITMQ_URL")
@@ -52,13 +54,46 @@ func main() {
 		}
 	}
 
+	// Backfill existing incidents from incident service
+	if cfg.IncidentServiceURL != "" {
+		go func() {
+			if err := seed.BackfillIncidents(cfg.IncidentServiceURL, repo); err != nil {
+				log.Printf("Backfill error: %v", err)
+			}
+		}()
+	}
+
 	r := gin.Default()
-	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:3000"},
+	originEnv := strings.TrimSpace(os.Getenv("CORS_ALLOW_ORIGINS"))
+	origins := []string{"http://localhost:3000"}
+	if originEnv != "" {
+		parts := strings.Split(originEnv, ",")
+		parsed := make([]string, 0, len(parts))
+		for _, p := range parts {
+			t := strings.TrimSpace(p)
+			if t != "" {
+				parsed = append(parsed, t)
+			}
+		}
+		if len(parsed) > 0 {
+			origins = parsed
+		}
+	}
+
+	corsCfg := cors.Config{
+		AllowOrigins:     origins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		AllowCredentials: true,
-	}))
+	}
+	for _, o := range origins {
+		if o == "*" {
+			corsCfg.AllowAllOrigins = true
+			corsCfg.AllowCredentials = false
+			break
+		}
+	}
+	r.Use(cors.New(corsCfg))
 
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok", "service": "analytics"})

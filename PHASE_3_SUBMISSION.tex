@@ -1,0 +1,239 @@
+\documentclass[12pt,a4paper]{report}
+\usepackage[T1]{fontenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fancyhdr}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{lmodern}
+\usepackage{tikz}
+
+% TikZ Libraries for the Verification Diagram
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, calc, shapes.cylinders}
+
+% Code listing styling
+\lstset{
+	basicstyle=\ttfamily\scriptsize,
+	breaklines=true,
+	commentstyle=\itshape\color{gray},
+	keywordstyle=\bfseries\color{blue},
+	stringstyle=\color{red!70!black},
+	backgroundcolor=\color{lightgray!10},
+	frame=single,
+	captionpos=b,
+	showstringspaces=false,
+	numbers=left,
+	numberstyle=\tiny\color{gray},
+	stepnumber=1,
+	numbersep=8pt,
+	tabsize=4
+}
+
+% Header and Footer
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{CPEN 421 Phase 3}
+\lhead{Client Interface \& Proximity Dispatch}
+\cfoot{\thepage}
+
+\renewcommand{\arraystretch}{1.3}
+
+\begin{document}
+
+% ============================================================================
+% CUSTOM TITLE PAGE
+% ============================================================================
+\begin{titlepage}
+	\begin{center}
+		\vspace*{1cm}
+
+		\includegraphics[width=0.3\textwidth]{logo.png}\\[1cm] 
+
+		{\Large \textbf{UNIVERSITY OF GHANA}}\\[0.2cm]
+		{\large School of Engineering Sciences}\\[0.2cm]
+		{\large Department of Computer Engineering}\\[1cm]
+
+		\rule{\linewidth}{0.5mm} \\[0.4cm]
+		{\huge \textbf{National Emergency Response and Dispatch Platform}} \\[0.2cm]
+		{\large \textbf{Phase 3: Client Interface \& Proximity Dispatch}} \\[0.4cm]
+		\rule{\linewidth}{0.5mm} \\[1.5cm]
+
+		{\Large \textbf{CPEN 421: Mobile and Web Design Architecture}}\\[1cm]
+
+		{\large \textbf{Group 5}}\\[0.5cm]
+
+		\begin{tabular}{ll}
+			\textbf{Joshua Nuku} & 11252857 \\
+			\textbf{Jeffery Quansah} & 11252855 \\
+		\end{tabular}
+
+		\vfill
+		
+		{\large \textbf{Source Code Repository:}}\\
+		\url{https://github.com/JoshNuku/emergency-dispatch-system.git}\\[0.8cm]
+
+		{\large \textbf{Lecturer:} Dr. Gifty Osei}\\
+		{\large \textbf{TA:} Nathaniel Adika}\\[0.8cm]
+
+		\large \today
+
+	\end{center}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+% ============================================================================
+% CHAPTER 1: FRONTEND ARCHITECTURE
+% ============================================================================
+\chapter{Frontend Architecture}
+
+\section{Modern Web Stack}
+
+The client interface was developed using a Vercel-inspired, high-utility design language. The stack was chosen to ensure rapid responsiveness, real-time interactivity, and type safety across all administrative workflows.
+
+\begin{itemize}
+	\item \textbf{Framework:} Next.js 14 (App Router)
+	\item \textbf{UI Core:} React 18 with Tailwind CSS for high-performance styling
+	\item \textbf{State Management:} Zustand (stateless, atomic stores for real-time synchronization)
+	\item \textbf{Icons:} Lucide React (modular, high-clarity iconography)
+	\item \textbf{Maps:} Leaflet with OpenStreetMap tiles (customized for emergency unit tracking)
+	\item \textbf{Real-time:} WebSockets (connecting directly to the Phase 2 Realtime Gateway)
+\end{itemize}
+
+\section{Unified Dashboard Design}
+
+The platform implements a modular dashboard system where the interface dynamically adapts based on the authenticated user's role. This was achieved through a centralized \texttt{AppShell} component that handles RBAC (Role-Based Access Control) and workspace navigation.
+
+\begin{lstlisting}[language=tsx, caption=Role-Based Workspace Selection (AppShell.tsx)]
+function allowedWorkspaces(role: string | undefined): WorkspaceView[] {
+  if (!role) return [];
+  if (role === "system_admin") return ["admin", "operations", "driver"];
+  if (
+    role === "ambulance_driver" ||
+    role === "police_driver" ||
+    role === "fire_driver" ||
+    role === "driver"
+  )
+    return ["driver"];
+  return ["operations"];
+}
+\end{lstlisting}
+
+\newpage
+
+% ============================================================================
+% CHAPTER 2: PROXIMITY DISPATCH LOGIC
+% ============================================================================
+\chapter{Geographic Dispatch \& Proximity Selection}
+
+\section{Vehicle-Centric Dispatching}
+
+While Phase 2 focused on station-based lookups, Phase 3 evolved the platform to a vehicle-centric model. Emergency units (Ambulances, Police Cars, Fire Trucks) are now treated as independent mobile nodes. When an incident is recorded, the system calculates the distance from the incident coordinates to all active, available vehicles.
+
+\section{PostGIS Spatial Queries}
+
+The backend was enhanced with a high-performance spatial search using PostGIS \texttt{ST\_Distance}. This allows the system to perform complex meter-based proximity calculations at the database level.
+
+\begin{lstlisting}[language=Go, caption=Nearest Vehicle Search (VehicleRepository)]
+func (r *VehicleRepository) FindNearestAvailable(lat, lng float64, vehicleType string) (*models.Vehicle, error) {
+	var vehicle models.Vehicle
+	
+	// Filter by type and current availability status
+	query := r.db.Where("vehicle_type = ? AND status = 'available'", vehicleType)
+	
+	// Spatial ordering by distance to incident (WGS84 geography)
+	orderClause := fmt.Sprintf(
+		"ST_Distance(ST_MakePoint(longitude, latitude)::geography, ST_MakePoint(%f, %f)::geography) ASC",
+		lng, lat,
+	)
+	
+	if err := query.Order(orderClause).First(&vehicle).Error; err != nil {
+		return nil, err
+	}
+	return &vehicle, nil
+}
+\end{lstlisting}
+
+\section{Automated Incident Orchestration}
+
+The Incident Service was refactored to bridge the gap between reporting and tracking. The \texttt{AutoDispatch} logic now maps incident categories (e.g., Medical $\rightarrow$ Ambulance) and invokes the internal Dispatch API to secure the closest unit.
+
+\begin{lstlisting}[language=Go, caption=Internal API Call for Nearest Responder]
+resp, err := http.Get(fmt.Sprintf("%s/vehicles/nearest?lat=%f&lng=%f&type=%s", 
+    dispatchServiceURL, lat, lng, mappedType))
+\end{lstlisting}
+
+\newpage
+
+% ============================================================================
+% CHAPTER 3: ADMINISTRATIVE WORKFLOWS
+% ============================================================================
+\chapter{Administrative Workflows}
+
+\section{Scoped Administrative Access}
+
+To satisfy stakeholder requirements for decentralized management, the platform implements unique scoping for department administrators (Hospital, Police, and Fire). 
+
+\begin{itemize}
+	\item \textbf{Hospital Administrators:} Focused on updating hospital capacity and ambulance availability.
+	\item \textbf{Police/Fire Administrators:} Responsible for personnel management and station information updates.
+\end{itemize}
+
+The UI restricts these administrators to strictly managing resources within their assigned station, preventing cross-departmental data leakage.
+
+\begin{lstlisting}[language=tsx, caption=Station Filtering for Department Admins]
+{safeStations
+  .filter((s) => isSystemAdmin || s.id === state.profile?.station_id)
+  .map((station) => (
+    <StationCard key={station.id} station={station} />
+  ))
+}
+\end{lstlisting}
+
+\section{Real-time Map Visualization}
+
+The \texttt{OverviewPage} leverages a customized map engine to visualize the entire emergency ecosystem. It displays active incidents and responder vehicle locations in real-time, fanning out updates via the WebSocket gateway.
+
+\section{Performance Analytics}
+
+The \texttt{AnalyticsPage} provides a comprehensive view of system health through three primary datasets:
+\begin{enumerate}
+    \item \textbf{Response Time Trends:} Average time from creation to resolution.
+    \item \textbf{Regional Hotspots:} Incident density across different regions.
+    \item \textbf{Resource Utilization:} Percentage of the fleet currently engaged in active cases.
+\end{enumerate}
+
+\newpage
+
+% ============================================================================
+% CHAPTER 4: VERIFICATION
+% ============================================================================
+\chapter{Verification and Testing}
+
+\section{Proximity Verification}
+
+A Python-based automated test suite was developed to verify the geographical accuracy of the dispatch algorithm. The script simulates incidents at specific GPS offsets and confirms that the system selects the correct vehicle based on meter-level distance.
+
+\begin{lstlisting}[language=python, caption=Proximity Verification Result]
+Creating incident near Ambulance 1 at (5.7001, -0.1999)...
+Incident created: 19b68be1-6db8-4a43-a029-1c72001b846d
+Assigned Unit: 88888888-8888-8888-8888-888888888888 (Type: ambulance)
+SUCCESS: Correctly assigned nearest ambulance (Ambulance 1)
+\end{lstlisting}
+
+\section{UI Stability and Error Handling}
+
+The frontend was rigorously tested for runtime stability. Defensive programming was implemented in the normalization layer to handle incomplete telemetry data, resolving potential hydration mismatches and null-pointer exceptions in the analytics visualizations.
+
+\section{Conclusion}
+
+Phase 3 has successfully integrated a modern, role-aware client interface with a mature, geographically-aware backend. The system now fulfills the complete lifecycle of emergency coordination: from reporting via a map-integrated form to automated proximity-based dispatch and real-time operational monitoring.
+
+\end{document}

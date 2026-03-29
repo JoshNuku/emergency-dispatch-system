@@ -10,6 +10,9 @@ import (
 func Setup(router *gin.Engine, incidentHandler *handlers.IncidentHandler, stationHandler *handlers.StationHandler, jwtSecret string) {
 	auth := middleware.JWTAuth(jwtSecret)
 
+	// Internal route for trusted service-to-service access.
+	router.GET("/internal/incidents", incidentHandler.ListIncidentsInternal)
+
 	// Incident routes
 	incidents := router.Group("/incidents", auth)
 	{
@@ -29,5 +32,6 @@ func Setup(router *gin.Engine, incidentHandler *handlers.IncidentHandler, statio
 		stations.GET("/nearest", stationHandler.FindNearest)
 		stations.GET("/:id", stationHandler.GetStation)
 		stations.PUT("/:id", stationHandler.UpdateStation)
+		stations.DELETE("/:id", stationHandler.DeleteStation)
 	}
 }

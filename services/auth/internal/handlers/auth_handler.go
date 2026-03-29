@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -62,6 +63,12 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 	if !models.IsValidRole(req.Role) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid role. Valid roles: system_admin, hospital_admin, police_admin, fire_admin, ambulance_driver"})
+		return
+	}
+
+	// Enforce that driver roles must be associated with a station
+	if strings.Contains(req.Role, "driver") && req.StationID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "station_id is required for driver roles"})
 		return
 	}
 
@@ -206,6 +213,172 @@ func (h *AuthHandler) ListUsers(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, users)
+}
+
+type UpdateUserRequest struct {
+	Name      *string `json:"name"`
+	Role      *string `json:"role"`
+	StationID *string `json:"station_id"`
+}
+
+type UpdateProfileRequest struct {
+	Name     *string `json:"name"`
+	Password *string `json:"password"`
+}
+
+// UpdateProfile updates the authenticated user's non-critical fields.
+func (h *AuthHandler) UpdateProfile(c *gin.Context) {
+	userID, _ := c.Get("userID")
+	uid, err := uuid.Parse(userID.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+
+	user, err := h.repo.FindByID(uid)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	var req UpdateProfileRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if req.Name != nil {
+		trimmed := strings.TrimSpace(*req.Name)
+		if trimmed == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "name cannot be empty"})
+			return
+		}
+		user.Name = trimmed
+	}
+
+	if req.Password != nil {
+		if len(*req.Password) < 8 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "password must be at least 8 characters"})
+			return
+		}
+		hash, hashErr := bcrypt.GenerateFromPassword([]byte(*req.Password), bcrypt.DefaultCost)
+		if hashErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
+			return
+		}
+		user.PasswordHash = string(hash)
+	}
+
+	if err := h.repo.Update(user); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update profile"})
+		return
+	}
+
+	c.JSON(http.StatusOK, user)
+}
+
+// UpdateUser updates an existing user's metadata (admin only)
+func (h *AuthHandler) UpdateUser(c *gin.Context) {
+	idStr := c.Param("id")
+	uid, err := uuid.Parse(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+
+	user, err := h.repo.FindByID(uid)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	var req UpdateUserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if req.Name != nil {
+		user.Name = *req.Name
+	}
+	// Determine resulting role after update
+	resultingRole := user.Role
+	if req.Role != nil {
+		if !models.IsValidRole(*req.Role) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid role"})
+			return
+		}
+		resultingRole = *req.Role
+	}
+
+	// If role becomes a driver role, ensure a station will be set
+	if strings.Contains(resultingRole, "driver") {
+		// If station_id is being provided explicitly
+		if req.StationID != nil {
+			if *req.StationID == "" {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "station_id is required for driver roles"})
+				return
+			}
+			// will parse below
+		} else {
+			// no station provided in update payload — ensure an existing station exists
+			if user.StationID == nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "station_id is required for driver roles"})
+				return
+			}
+		}
+	}
+
+	if req.Role != nil {
+		user.Role = *req.Role
+	}
+
+	if req.StationID != nil {
+		if *req.StationID == "" {
+			// Disallow clearing station if resulting role requires one
+			if strings.Contains(resultingRole, "driver") {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "station_id is required for driver roles"})
+				return
+			}
+			user.StationID = nil
+		} else {
+			sid, err := uuid.Parse(*req.StationID)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid station_id format"})
+				return
+			}
+			user.StationID = &sid
+		}
+	}
+
+	if err := h.repo.Update(user); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user"})
+		return
+	}
+
+	c.JSON(http.StatusOK, user)
+}
+
+// DeleteUser removes a user account (admin only)
+func (h *AuthHandler) DeleteUser(c *gin.Context) {
+	idStr := c.Param("id")
+	uid, err := uuid.Parse(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+
+	// Delete refresh tokens first
+	if err := h.repo.DeleteUserRefreshTokens(uid); err != nil {
+		// log but continue
+	}
+
+	if err := h.repo.DeleteByID(uid); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete user"})
+		return
+	}
+
+	c.Status(http.StatusNoContent)
 }
 
 // --- Token generation ---

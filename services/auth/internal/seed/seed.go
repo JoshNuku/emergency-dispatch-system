@@ -12,9 +12,12 @@ import (
 )
 
 const (
-	policeStationID   = "11111111-1111-1111-1111-111111111111"
-	fireStationID     = "22222222-2222-2222-2222-222222222222"
-	hospitalStationID = "33333333-3333-3333-3333-333333333333"
+	policeStationID    = "11111111-1111-1111-1111-111111111111"
+	fireStationID      = "22222222-2222-2222-2222-222222222222"
+	hospitalStationID  = "33333333-3333-3333-3333-333333333333"
+	kaneshiePoliceID   = "44444444-4444-4444-4444-444444444444"
+	makolaFireID       = "55555555-5555-5555-5555-555555555555"
+	ridgeHospitalID    = "66666666-6666-6666-6666-666666666666"
 )
 
 type demoUser struct {
@@ -39,21 +42,32 @@ func Run(db *gorm.DB) error {
 		return err
 	}
 
-	policeID := uuid.MustParse(policeStationID)
-	fireID := uuid.MustParse(fireStationID)
-	hospitalID := uuid.MustParse(hospitalStationID)
+	pID := uuid.MustParse(policeStationID)
+	fID := uuid.MustParse(fireStationID)
+	hID := uuid.MustParse(hospitalStationID)
+	kpID := uuid.MustParse(kaneshiePoliceID)
+	mfID := uuid.MustParse(makolaFireID)
+	rhID := uuid.MustParse(ridgeHospitalID)
 
 	users := []demoUser{
+		// Administrators
 		{Name: "System Administrator", Email: demoEmail("system_admin"), Role: models.RoleSystemAdmin},
-		{Name: "Hospital Administrator", Email: demoEmail("hospital_admin"), Role: models.RoleHospitalAdmin, StationID: &hospitalID},
-		{Name: "Police Administrator", Email: demoEmail("police_admin"), Role: models.RolePoliceAdmin, StationID: &policeID},
-		{Name: "Fire Administrator", Email: demoEmail("fire_admin"), Role: models.RoleFireAdmin, StationID: &fireID},
-		{Name: "Ambulance Driver", Email: demoEmail("ambulance_driver"), Role: models.RoleAmbulanceDriver, StationID: &hospitalID},
+		{Name: "Hospital Administrator", Email: demoEmail("hospital_admin"), Role: models.RoleHospitalAdmin, StationID: &hID},
+		{Name: "Police Administrator", Email: demoEmail("police_admin"), Role: models.RolePoliceAdmin, StationID: &pID},
+		{Name: "Fire Administrator", Email: demoEmail("fire_admin"), Role: models.RoleFireAdmin, StationID: &fID},
+
+		// Drivers / Units
+		{Name: "Legon Ambulance Driver", Email: demoEmail("ambulance_driver"), Role: models.RoleAmbulanceDriver, StationID: &hID},
+		{Name: "Ridge Ambulance Driver", Email: demoEmail("ridge_ambulance_driver"), Role: models.RoleAmbulanceDriver, StationID: &rhID},
+		{Name: "Kaneshie Police Unit", Email: demoEmail("police_driver"), Role: models.RolePoliceAdmin, StationID: &kpID},
+		{Name: "Makola Fire Unit", Email: demoEmail("fire_driver"), Role: models.RoleFireAdmin, StationID: &mfID},
 	}
 
 	for _, entry := range users {
 		var existing models.User
 		if err := db.Where("email = ?", entry.Email).First(&existing).Error; err == nil {
+			// Update if exists but station changed
+			db.Model(&existing).Updates(models.User{StationID: entry.StationID, Name: entry.Name})
 			continue
 		} else if err != nil && err != gorm.ErrRecordNotFound {
 			return err
@@ -71,7 +85,7 @@ func Run(db *gorm.DB) error {
 		}
 	}
 
-	log.Printf("Auth demo users ensured. Login with %s / %s", demoEmail("system_admin"), defaultPassword)
+	log.Printf("Auth demo users ensured with password: %s", defaultPassword)
 	return nil
 }
 

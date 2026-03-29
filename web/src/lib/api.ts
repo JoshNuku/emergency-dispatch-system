@@ -2,8 +2,13 @@ import type {
   AuthTokens,
   CreateIncidentInput,
   DashboardStats,
+  HospitalCapacity,
   Incident,
+  RegionIncident,
+  RegisterUserInput,
+  ResourceUtilization,
   Station,
+  UpdateStationInput,
   UserProfile,
   Vehicle,
 } from "@/types/frontend";
@@ -12,8 +17,13 @@ export type {
   AuthTokens,
   CreateIncidentInput,
   DashboardStats,
+  HospitalCapacity,
   Incident,
+  RegionIncident,
+  RegisterUserInput,
+  ResourceUtilization,
   Station,
+  UpdateStationInput,
   UserProfile,
   Vehicle,
 } from "@/types/frontend";
@@ -46,7 +56,18 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     throw new Error(message);
   }
 
-  return response.json() as Promise<T>;
+  // Safely handle empty responses (e.g. 204 No Content) to avoid
+  // "Unexpected end of JSON input" when calling `response.json()`
+  const text = await response.text();
+  if (!text) {
+    return undefined as unknown as T;
+  }
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    // If response isn't valid JSON, return the raw text (cast to T).
+    return text as unknown as T;
+  }
 }
 
 function authHeader(token: string) {
@@ -77,6 +98,12 @@ export function getProfile(token: string) {
 
 export function getOpenIncidents(token: string) {
   return request<Incident[]>(`${incidentApiUrl}/incidents/open`, {
+    headers: authHeader(token),
+  });
+}
+
+export function getIncidents(token: string) {
+  return request<Incident[]>(`${incidentApiUrl}/incidents`, {
     headers: authHeader(token),
   });
 }
@@ -141,4 +168,114 @@ export function updateVehicleLocation(token: string, vehicleID: string, latitude
       body: JSON.stringify({ latitude, longitude }),
     },
   );
+}
+
+export function updateVehicle(token: string, vehicleID: string, input: Partial<Vehicle>) {
+  return request<Vehicle>(`${dispatchApiUrl}/vehicles/${vehicleID}`, {
+    method: "PUT",
+    headers: { ...authHeader(token), "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export function createVehicle(token: string, input: Partial<Vehicle>) {
+  return request<Vehicle>(`${dispatchApiUrl}/vehicles/register`, {
+    method: "POST",
+    headers: { ...authHeader(token), "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteVehicle(token: string, vehicleID: string) {
+  return request<void>(`${dispatchApiUrl}/vehicles/${vehicleID}`, {
+    method: "DELETE",
+    headers: authHeader(token),
+  });
+}
+
+// ── User management ──
+
+export function getUsers(token: string) {
+  return request<UserProfile[]>(`${authApiUrl}/auth/users`, {
+    headers: authHeader(token),
+  });
+}
+
+export function registerUser(token: string, input: RegisterUserInput) {
+  return request<{ message: string; user: UserProfile }>(`${authApiUrl}/auth/register`, {
+    method: "POST",
+    headers: { ...authHeader(token), "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateUser(token: string, userID: string, input: Partial<RegisterUserInput>) {
+  return request<UserProfile>(`${authApiUrl}/auth/users/${userID}`, {
+    method: "PUT",
+    headers: { ...authHeader(token), "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateMyProfile(
+  token: string,
+  input: { name?: string; password?: string },
+) {
+  return request<UserProfile>(`${authApiUrl}/auth/profile`, {
+    method: "PUT",
+    headers: { ...authHeader(token), "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteUser(token: string, userID: string) {
+  return request<void>(`${authApiUrl}/auth/users/${userID}`, {
+    method: "DELETE",
+    headers: authHeader(token),
+  });
+}
+
+// ── Station management ──
+
+export function updateStation(token: string, stationID: string, input: UpdateStationInput) {
+  return request<Station>(`${incidentApiUrl}/stations/${stationID}`, {
+    method: "PUT",
+    headers: authHeader(token),
+    body: JSON.stringify(input),
+  });
+}
+
+export function createStation(token: string, input: Partial<Station>) {
+  return request<Station>(`${incidentApiUrl}/stations`, {
+    method: "POST",
+    headers: authHeader(token),
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteStation(token: string, stationID: string) {
+  return request<void>(`${incidentApiUrl}/stations/${stationID}`, {
+    method: "DELETE",
+    headers: authHeader(token),
+  });
+}
+
+// ── Extended analytics ──
+
+export function getIncidentsByRegion(token: string) {
+  return request<RegionIncident[]>(`${analyticsApiUrl}/analytics/incidents-by-region`, {
+    headers: authHeader(token),
+  });
+}
+
+export function getResourceUtilization(token: string) {
+  return request<ResourceUtilization[]>(`${analyticsApiUrl}/analytics/resource-utilization`, {
+    headers: authHeader(token),
+  });
+}
+
+export function getHospitalCapacity(token: string) {
+  return request<HospitalCapacity[]>(`${analyticsApiUrl}/analytics/hospital-capacity`, {
+    headers: authHeader(token),
+  });
 }

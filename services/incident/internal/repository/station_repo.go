@@ -44,6 +44,10 @@ func (r *StationRepository) Update(station *models.ResponderStation) error {
 	return r.db.Save(station).Error
 }
 
+func (r *StationRepository) DeleteByID(id uuid.UUID) error {
+	return r.db.Where("id = ?", id).Delete(&models.ResponderStation{}).Error
+}
+
 // FindNearestAvailable uses PostGIS to find the nearest available station of a given type.
 // For hospitals (medical emergencies), it also checks available_capacity > 0.
 func (r *StationRepository) FindNearestAvailable(lat, lng float64, stationType string) (*models.ResponderStation, error) {

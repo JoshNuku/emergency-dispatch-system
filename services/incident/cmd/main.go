@@ -14,7 +14,6 @@ import (
 	"emergency-dispatch/services/incident/internal/mq"
 	"emergency-dispatch/services/incident/internal/repository"
 	"emergency-dispatch/services/incident/internal/routes"
-	"emergency-dispatch/services/incident/internal/seed"
 	"emergency-dispatch/services/incident/internal/services"
 )
 
@@ -39,10 +38,6 @@ func main() {
 	}
 	log.Println("Database migrated")
 
-	if err := seed.Run(db); err != nil {
-		log.Fatalf("Failed to seed incident demo data: %v", err)
-	}
-
 	// RabbitMQ publisher
 	publisher, err := mq.NewPublisher(cfg.RabbitURL)
 	if err != nil {
@@ -56,6 +51,15 @@ func main() {
 	incidentRepo := repository.NewIncidentRepository(db)
 	stationRepo := repository.NewStationRepository(db)
 	dispatchSvc := services.NewDispatchService(stationRepo, incidentRepo, publisher, cfg.DispatchServiceURL)
+	consumer, err := mq.NewConsumer(cfg.RabbitURL, incidentRepo, publisher)
+	if err != nil {
+		log.Printf("WARN: Failed to start incident consumer: %v (vehicle-driven transitions disabled)", err)
+	} else if consumer != nil {
+		defer consumer.Close()
+		if err := consumer.Start(); err != nil {
+			log.Printf("WARN: Incident consumer failed to consume: %v", err)
+		}
+	}
 	incidentHandler := handlers.NewIncidentHandler(incidentRepo, dispatchSvc, publisher)
 	stationHandler := handlers.NewStationHandler(stationRepo)
 

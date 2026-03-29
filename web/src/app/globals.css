@@ -1,24 +1,24 @@
 @import "tailwindcss";
 @import "mapbox-gl/dist/mapbox-gl.css";
 
-/* ── Figma-inspired dark palette ───────────────────────────────────── */
+/* ── Vercel-inspired dark palette ───────────────────────────────────── */
 :root {
-  --background: #1e1e1e;
-  --foreground: #e8eaed;
-  --panel: #2c2c2c;
-  --panel-strong: #383838;
-  --panel-soft: #323232;
-  --line: rgba(255, 255, 255, 0.08);
-  --line-strong: rgba(255, 255, 255, 0.14);
-  --accent: #0d99ff;
-  --accent-soft: rgba(13, 153, 255, 0.14);
-  --signal: #14ae5c;
-  --warning: #ffcd29;
-  --danger: #f24822;
-  --muted: #8c8c8c;
-  --sidebar: #2c2c2c;
+  --background: #000000;
+  --foreground: #fafafa;
+  --panel: #0a0a0a;
+  --panel-strong: #111111;
+  --panel-soft: #0c0c0c;
+  --line: rgba(255, 255, 255, 0.12);
+  --line-strong: rgba(255, 255, 255, 0.2);
+  --accent: #0070f3;
+  --accent-soft: rgba(0, 112, 243, 0.16);
+  --signal: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --muted: rgba(250, 250, 250, 0.64);
+  --sidebar: #000000;
   --nav-hover: rgba(255, 255, 255, 0.06);
-  --nav-active: rgba(13, 153, 255, 0.12);
+  --nav-active: rgba(255, 255, 255, 0.09);
 }
 
 html[data-theme="light"] {
@@ -81,23 +81,26 @@ a {
 }
 
 ::selection {
-  background: rgba(13, 153, 255, 0.28);
+  background: rgba(255, 255, 255, 0.2);
 }
 
 /* ── Panels ────────────────────────────────────────────────────────── */
 .panel {
   background: var(--panel);
   border: 1px solid var(--line);
+  border-radius: 16px;
 }
 
 .panel-strong {
   background: var(--panel-strong);
   border: 1px solid var(--line);
+  border-radius: 16px;
 }
 
 .panel-soft {
   background: var(--panel-soft);
   border: 1px solid var(--line);
+  border-radius: 16px;
 }
 
 /* ── Sidebar ───────────────────────────────────────────────────────── */
@@ -153,16 +156,16 @@ a {
   border-radius: 8px;
 }
 
-/* ── Nav items (Figma-style) ───────────────────────────────────────── */
+/* ── Nav items (Vercel-like) ───────────────────────────────────────── */
 .figma-nav-item {
   display: flex;
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 7px 10px;
-  border-radius: 6px;
+  padding: 8px 10px;
+  border-radius: 10px;
   font-size: 13px;
-  font-weight: 400;
+  font-weight: 500;
   color: var(--muted);
   cursor: pointer;
   border: none;
@@ -178,8 +181,8 @@ a {
 
 .figma-nav-item.active {
   background: var(--nav-active);
-  color: var(--accent);
-  font-weight: 500;
+  color: var(--foreground);
+  box-shadow: inset 0 0 0 1px var(--line);
 }
 
 /* ── Sidebar section label ─────────────────────────────────────────── */
@@ -227,6 +230,16 @@ html[data-theme="light"] .app-scroll::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.1);
 }
 
+/* ── Hidden scrollbar (still scrollable) ───────────────────────────── */
+.scrollbar-hidden {
+  -ms-overflow-style: none; /* IE + Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none; /* Chrome/Safari/Opera */
+}
+
 /* ── Mapbox popup ──────────────────────────────────────────────────── */
 .mapboxgl-popup-content {
   border-radius: 8px;
@@ -259,6 +272,26 @@ body * {
     background-color 160ms ease,
     border-color 160ms ease,
     color 160ms ease;
+}
+
+/* ── Modal surface (shared) ────────────────────────────────────────── */
+.modal-surface {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.7);
+  border-radius: 18px;
+}
+
+html[data-theme="light"] .modal-surface {
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.14);
+}
+
+.modal-backdrop {
+  background: rgba(0, 0, 0, 0.45);
+}
+
+html[data-theme="light"] .modal-backdrop {
+  background: rgba(17, 24, 39, 0.18);
 }
 
 /* ── Figma gradient cards ──────────────────────────────────────────── */

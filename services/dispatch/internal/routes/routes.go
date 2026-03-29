@@ -10,6 +10,11 @@ import (
 func Setup(router *gin.Engine, vehicleHandler *handlers.VehicleHandler, jwtSecret string) {
 	auth := middleware.JWTAuth(jwtSecret)
 
+	// Internal service-to-service routes (no auth required)
+	router.GET("/vehicles/nearest", vehicleHandler.GetNearestAvailableVehicle)
+	router.PUT("/vehicles/:id/status/internal", vehicleHandler.UpdateVehicleStatus)
+	router.GET("/vehicles/all/internal", vehicleHandler.ListAllVehiclesInternal)
+
 	vehicles := router.Group("/vehicles", auth)
 	{
 		vehicles.POST("/register", vehicleHandler.RegisterVehicle)
@@ -19,5 +24,7 @@ func Setup(router *gin.Engine, vehicleHandler *handlers.VehicleHandler, jwtSecre
 		vehicles.GET("/:id/location", vehicleHandler.GetVehicleLocation)
 		vehicles.POST("/:id/location", vehicleHandler.UpdateVehicleLocation)
 		vehicles.PUT("/:id/status", vehicleHandler.UpdateVehicleStatus)
+		vehicles.PUT("/:id", vehicleHandler.UpdateVehicle)
+		vehicles.DELETE("/:id", vehicleHandler.DeleteVehicle)
 	}
 }

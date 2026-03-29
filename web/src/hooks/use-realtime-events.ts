@@ -30,49 +30,82 @@ export function useRealtimeEvents(token: string | null) {
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    if (!token) {
-      return;
-    }
+    if (!token) return;
 
-    const socket = new WebSocket(normalizeWebSocketUrl(token));
+    let mounted = true;
+    let socket: WebSocket | null = null;
+    let reconnectAttempts = 0;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
-    socket.onopen = () => {
-      setIsConnected(true);
-    };
+    const maxDelay = 30_000; // 30s
 
-    socket.onmessage = (event) => {
+    const connect = () => {
+      if (!mounted) return;
       try {
-        const message = JSON.parse(event.data) as { type?: string; payload?: unknown };
-        setEvents((current) => [
-          {
-            type: message.type ?? "unknown",
-            payload: parsePayload(message.payload),
-            receivedAt: new Date().toISOString(),
-          },
-          ...current,
-        ].slice(0, 8));
-      } catch {
-        setEvents((current) => [
-          {
-            type: "unknown",
-            payload: event.data,
-            receivedAt: new Date().toISOString(),
-          },
-          ...current,
-        ].slice(0, 8));
+        socket = new WebSocket(normalizeWebSocketUrl(token));
+      } catch (e) {
+        setIsConnected(false);
+        scheduleReconnect();
+        return;
       }
+
+      socket.onopen = () => {
+        reconnectAttempts = 0;
+        setIsConnected(true);
+      };
+
+      socket.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data) as { type?: string; payload?: unknown };
+          setEvents((current) => [
+            {
+              type: message.type ?? "unknown",
+              payload: parsePayload(message.payload),
+              receivedAt: new Date().toISOString(),
+            },
+            ...current,
+          ].slice(0, 32));
+        } catch {
+          setEvents((current) => [
+            {
+              type: "unknown",
+              payload: event.data,
+              receivedAt: new Date().toISOString(),
+            },
+            ...current,
+          ].slice(0, 32));
+        }
+      };
+
+      socket.onerror = () => {
+        setIsConnected(false);
+      };
+
+      socket.onclose = () => {
+        setIsConnected(false);
+        if (!mounted) return;
+        scheduleReconnect();
+      };
     };
 
-    socket.onerror = () => {
-      setIsConnected(false);
+    const scheduleReconnect = () => {
+      reconnectAttempts++;
+      const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), maxDelay);
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      reconnectTimer = setTimeout(() => {
+        if (!mounted) return;
+        connect();
+      }, delay);
     };
 
-    socket.onclose = () => {
-      setIsConnected(false);
-    };
+    connect();
 
     return () => {
-      socket.close();
+      mounted = false;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      try {
+        if (socket) socket.close();
+      } catch (e) {}
     };
   }, [token]);
 

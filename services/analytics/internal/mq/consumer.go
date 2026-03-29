@@ -3,6 +3,8 @@ package mq
 import (
 	"encoding/json"
 	"log"
+	"math"
+	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 
@@ -178,9 +180,17 @@ func (c *Consumer) handleIncidentDispatched(data map[string]interface{}) {
 
 	stationIDStr, _ := data["station_id"].(string)
 	responderType, _ := incidentData["assigned_unit_type"].(string)
+	incidentType, _ := incidentData["incident_type"].(string)
+	lat, _ := incidentData["latitude"].(float64)
+	lng, _ := incidentData["longitude"].(float64)
+	region := deriveRegion(lat, lng)
 
 	metric := &models.IncidentMetric{
 		IncidentID:    uid,
+		IncidentType:  incidentType,
+		Latitude:      lat,
+		Longitude:     lng,
+		Region:        region,
 		ResponderType: responderType,
 	}
 
@@ -191,9 +201,14 @@ func (c *Consumer) handleIncidentDispatched(data map[string]interface{}) {
 		}
 	}
 
-	// Calculate response time (seconds between created_at and now)
-	responseTime := 0 // Will be calculated from timestamps in a full implementation
-	metric.ResponseTimeSeconds = &responseTime
+	// Calculate actual response time from created_at → dispatched_at
+	responseTimeSec := computeTimeDiffSeconds(
+		incidentData["created_at"],
+		incidentData["dispatched_at"],
+	)
+	metric.ResponseTimeSeconds = &responseTimeSec
+
+	log.Printf("Incident %s dispatched — response time: %d seconds", incidentID, responseTimeSec)
 
 	if err := c.repo.UpsertIncidentMetric(metric); err != nil {
 		log.Printf("Failed to update incident metric for dispatch: %v", err)
@@ -208,7 +223,7 @@ func (c *Consumer) handleIncidentStatusChanged(data map[string]interface{}) {
 
 	incidentID, _ := incidentData["id"].(string)
 	newStatus, _ := data["new_status"].(string)
-	if incidentID == "" || newStatus != "resolved" {
+	if incidentID == "" {
 		return
 	}
 
@@ -217,15 +232,81 @@ func (c *Consumer) handleIncidentStatusChanged(data map[string]interface{}) {
 		return
 	}
 
-	resolutionTime := 0
 	metric := &models.IncidentMetric{
-		IncidentID:            uid,
-		ResolutionTimeSeconds: &resolutionTime,
+		IncidentID: uid,
 	}
 
-	if err := c.repo.UpsertIncidentMetric(metric); err != nil {
-		log.Printf("Failed to update resolution metric: %v", err)
+	// Calculate response time if transitioning to dispatched
+	if newStatus == "dispatched" {
+		incidentType, _ := incidentData["incident_type"].(string)
+		responderType, _ := incidentData["assigned_unit_type"].(string)
+		lat, _ := incidentData["latitude"].(float64)
+		lng, _ := incidentData["longitude"].(float64)
+		region := deriveRegion(lat, lng)
+
+		metric.IncidentType = incidentType
+		metric.ResponderType = responderType
+		metric.Latitude = lat
+		metric.Longitude = lng
+		metric.Region = region
+
+		responseTimeSec := computeTimeDiffSeconds(
+			incidentData["created_at"],
+			incidentData["dispatched_at"],
+		)
+		metric.ResponseTimeSeconds = &responseTimeSec
+
+		log.Printf("Incident %s dispatched (via status change) — response time: %d seconds", incidentID, responseTimeSec)
 	}
+
+	// Calculate resolution time if transitioning to resolved
+	if newStatus == "resolved" {
+		resolutionTimeSec := computeTimeDiffSeconds(
+			incidentData["created_at"],
+			incidentData["resolved_at"],
+		)
+		metric.ResolutionTimeSeconds = &resolutionTimeSec
+
+		log.Printf("Incident %s resolved — resolution time: %d seconds", incidentID, resolutionTimeSec)
+	}
+
+	if metric.ResponseTimeSeconds != nil || metric.ResolutionTimeSeconds != nil {
+		if err := c.repo.UpsertIncidentMetric(metric); err != nil {
+			log.Printf("Failed to update incident metric: %v", err)
+		}
+	}
+}
+
+// computeTimeDiffSeconds parses two RFC3339 timestamp interface values
+// and returns the difference in seconds. Falls back to 1 if parsing fails
+// (so we never store 0 which would be filtered out by WHERE NOT NULL queries).
+func computeTimeDiffSeconds(startRaw, endRaw interface{}) int {
+	startStr, ok1 := startRaw.(string)
+	endStr, ok2 := endRaw.(string)
+	if !ok1 || !ok2 || startStr == "" || endStr == "" {
+		log.Printf("WARN: Missing timestamps for time diff (start=%v, end=%v), using fallback", startRaw, endRaw)
+		return 1 // Fallback: 1 second so it doesn't get filtered as "no data"
+	}
+
+	start, err1 := time.Parse(time.RFC3339Nano, startStr)
+	end, err2 := time.Parse(time.RFC3339Nano, endStr)
+	if err1 != nil || err2 != nil {
+		// Try alternate formats if RFC3339Nano fails
+		start, err1 = time.Parse(time.RFC3339, startStr)
+		end, err2 = time.Parse(time.RFC3339, endStr)
+		if err1 != nil || err2 != nil {
+			// Try Go's default time format
+			start, err1 = time.Parse("2006-01-02T15:04:05.999999999Z07:00", startStr)
+			end, err2 = time.Parse("2006-01-02T15:04:05.999999999Z07:00", endStr)
+			if err1 != nil || err2 != nil {
+				log.Printf("WARN: Failed to parse timestamps (start=%v err=%v, end=%v err=%v)", startStr, err1, endStr, err2)
+				return 1
+			}
+		}
+	}
+
+	diff := int(math.Max(1, math.Round(end.Sub(start).Seconds())))
+	return diff
 }
 
 // deriveRegion maps lat/lng to a named region (simplified for Greater Accra)

@@ -32,6 +32,8 @@ const (
 	RolePoliceAdmin     = "police_admin"
 	RoleFireAdmin       = "fire_admin"
 	RoleAmbulanceDriver = "ambulance_driver"
+	RolePoliceDriver    = "police_driver"
+	RoleFireDriver      = "fire_driver"
 )
 
 func ValidRoles() []string {
@@ -41,6 +43,8 @@ func ValidRoles() []string {
 		RolePoliceAdmin,
 		RoleFireAdmin,
 		RoleAmbulanceDriver,
+		RolePoliceDriver,
+		RoleFireDriver,
 	}
 }
 

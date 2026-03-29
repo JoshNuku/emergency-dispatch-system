@@ -57,6 +57,8 @@ const (
 	RolePoliceAdmin     = "police_admin"
 	RoleFireAdmin       = "fire_admin"
 	RoleAmbulanceDriver = "ambulance_driver"
+	RolePoliceDriver    = "police_driver"
+	RoleFireDriver      = "fire_driver"
 )
 
 func ValidIncidentTypes() []string {
@@ -83,4 +85,24 @@ func IsValidStatus(s string) bool {
 		}
 	}
 	return false
+}
+
+// CanTransitionStatus enforces legal lifecycle movement for incidents.
+// Idempotent updates (same status) are allowed.
+func CanTransitionStatus(from, to string) bool {
+	if from == to {
+		return true
+	}
+	switch from {
+	case StatusCreated:
+		return to == StatusDispatched || to == StatusResolved
+	case StatusDispatched:
+		return to == StatusInProgress || to == StatusResolved
+	case StatusInProgress:
+		return to == StatusResolved
+	case StatusResolved:
+		return false
+	default:
+		return false
+	}
 }

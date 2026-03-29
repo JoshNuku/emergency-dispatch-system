@@ -1,6 +1,7 @@
 package seed
 
 import (
+	"log"
 	"os"
 
 	"github.com/google/uuid"
@@ -9,21 +10,32 @@ import (
 	"emergency-dispatch/services/dispatch/internal/models"
 )
 
-const (
-	policeStationID   = "11111111-1111-1111-1111-111111111111"
-	fireStationID     = "22222222-2222-2222-2222-222222222222"
-	hospitalStationID = "33333333-3333-3333-3333-333333333333"
-)
-
 func Run(db *gorm.DB) error {
-	if os.Getenv("SEED_DEMO_DATA") == "false" {
+	// ── Cleanup logic ──────────────────────────────────────────────────────────
+	if os.Getenv("CLEAN_START") == "true" {
+		log.Println("CLEAN_START=true: Truncating vehicles and location history tables...")
+		
+		// Use Exec to run raw truncation commands
+		if err := db.Exec("TRUNCATE TABLE location_histories").Error; err != nil {
+			log.Printf("Error truncating location_histories: %v", err)
+		}
+		
+		if err := db.Exec("TRUNCATE TABLE vehicles CASCADE").Error; err != nil {
+			log.Printf("Error truncating vehicles: %v", err)
+		}
+	}
+
+	// Skip vehicle creation if SEED_DEMO_DATA=false OR SEED_VEHICLES=false
+	if os.Getenv("SEED_DEMO_DATA") == "false" || os.Getenv("SEED_VEHICLES") == "false" {
+		log.Println("Seeding demo vehicles skipped.")
 		return nil
 	}
 
+	// (The demo vehicles list is retained below but will be skipped due to SEED_VEHICLES=false)
 	vehicles := []models.Vehicle{
 		{
 			ID:           uuid.MustParse("44444444-4444-4444-4444-444444444444"),
-			StationID:    uuid.MustParse(hospitalStationID),
+			StationID:    uuid.MustParse("33333333-3333-3333-3333-333333333333"), // Hospital
 			StationType:  "hospital",
 			VehicleType:  models.VehicleTypeAmbulance,
 			LicensePlate: "GW-AMB-101",
@@ -31,28 +43,6 @@ func Run(db *gorm.DB) error {
 			Status:       models.VehicleAvailable,
 			Latitude:     5.6518,
 			Longitude:    -0.1875,
-		},
-		{
-			ID:           uuid.MustParse("55555555-5555-5555-5555-555555555555"),
-			StationID:    uuid.MustParse(fireStationID),
-			StationType:  "fire",
-			VehicleType:  models.VehicleTypeFireTruck,
-			LicensePlate: "GW-FIR-202",
-			DriverName:   "Efua Boateng",
-			Status:       models.VehicleAvailable,
-			Latitude:     5.6502,
-			Longitude:    -0.1844,
-		},
-		{
-			ID:           uuid.MustParse("66666666-6666-6666-6666-666666666666"),
-			StationID:    uuid.MustParse(policeStationID),
-			StationType:  "police",
-			VehicleType:  models.VehicleTypePoliceCar,
-			LicensePlate: "GW-POL-303",
-			DriverName:   "Ama Owusu",
-			Status:       models.VehicleAvailable,
-			Latitude:     5.6514,
-			Longitude:    -0.1869,
 		},
 	}
 

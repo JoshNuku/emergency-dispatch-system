@@ -12,9 +12,9 @@ type Vehicle struct {
 	StationID    uuid.UUID  `gorm:"type:uuid;not null;index" json:"station_id"`
 	StationType  string     `gorm:"size:50;not null" json:"station_type"`
 	VehicleType  string     `gorm:"size:50;not null;index" json:"vehicle_type"` // ambulance, fire_truck, police_car
-	LicensePlate string     `gorm:"size:50" json:"license_plate"`
+	LicensePlate string     `gorm:"size:50;uniqueIndex" json:"license_plate"`
 	DriverName   string     `gorm:"size:255" json:"driver_name"`
-	DriverID     *uuid.UUID `gorm:"type:uuid" json:"driver_id,omitempty"`
+	DriverID     *uuid.UUID `gorm:"type:uuid;uniqueIndex" json:"driver_id,omitempty"`
 	Status       string     `gorm:"size:50;not null;default:'available';index" json:"status"`
 	Latitude     float64    `json:"latitude"`
 	Longitude    float64    `json:"longitude"`

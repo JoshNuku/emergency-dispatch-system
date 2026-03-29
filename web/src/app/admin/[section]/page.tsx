@@ -1,9 +1,4 @@
-import { notFound } from "next/navigation";
-
-import { DashboardApp } from "@/components/dashboard-app";
-import type { DashboardSectionRoute } from "@/types/frontend";
-
-const adminSections: DashboardSectionRoute[] = ["map", "incidents", "intake", "vehicles", "telemetry", "realtime"];
+import { redirect } from "next/navigation";
 
 type AdminSectionPageProps = {
   params: Promise<{
@@ -14,9 +9,7 @@ type AdminSectionPageProps = {
 export default async function AdminSectionPage({ params }: AdminSectionPageProps) {
   const { section } = await params;
 
-  if (!adminSections.includes(section as DashboardSectionRoute)) {
-    notFound();
-  }
-
-  return <DashboardApp workspace="admin" section={section as DashboardSectionRoute} />;
+  if (section === "users") redirect("/admin/users");
+  if (section === "stations") redirect("/admin/stations");
+  redirect("/admin");
 }

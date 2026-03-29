@@ -47,6 +47,10 @@ func (r *UserRepository) Update(user *models.User) error {
 	return r.db.Save(user).Error
 }
 
+func (r *UserRepository) DeleteByID(id uuid.UUID) error {
+	return r.db.Where("id = ?", id).Delete(&models.User{}).Error
+}
+
 // Refresh token operations
 
 func (r *UserRepository) CreateRefreshToken(token *models.RefreshToken) error {

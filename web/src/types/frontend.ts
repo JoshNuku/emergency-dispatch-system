@@ -38,6 +38,7 @@ export type Vehicle = {
   vehicle_type: string;
   license_plate?: string;
   driver_name?: string;
+  driver_id?: string;
   status: string;
   latitude: number;
   longitude: number;
@@ -78,6 +79,47 @@ export type CreateIncidentInput = {
   notes?: string;
 };
 
+export type RegisterUserInput = {
+  name: string;
+  email: string;
+  password: string;
+  role: string;
+  station_id?: string;
+};
+
+export type UpdateStationInput = {
+  name?: string;
+  type?: string;
+  latitude?: number;
+  longitude?: number;
+  is_available?: boolean;
+  total_capacity?: number;
+  available_capacity?: number;
+  contact_phone?: string;
+};
+
+
+export type RegionIncident = {
+  region: string;
+  incident_type: string;
+  count: number;
+};
+
+export type ResourceUtilization = {
+  service_type: string;
+  total_units: number;
+  active_units: number;
+  utilization_percent: number;
+};
+
+export type HospitalCapacity = {
+  hospital_id: string;
+  hospital_name: string;
+  total_beds: number;
+  available_beds: number;
+  occupancy_percent: number;
+};
+
 export type RealtimeEvent = {
   type: string;
   payload: unknown;
@@ -97,11 +139,21 @@ export type LiveState = {
     max_seconds: number;
     count: number;
   }>;
+  incidentsByRegion: RegionIncident[];
+  resourceUtilization: ResourceUtilization[];
+  hospitalCapacity: HospitalCapacity[];
 };
 
-export type WorkspaceView = "home" | "admin" | "operations" | "driver";
+export type WorkspaceView = "home" | "admin" | "operations" | "driver" | "responder";
 
-export type DashboardSectionRoute = "map" | "incidents" | "intake" | "workflow" | "vehicles" | "telemetry" | "realtime";
+export type DashboardSectionRoute =
+  | "map"
+  | "incidents"
+  | "intake"
+  | "workflow"
+  | "vehicles"
+  | "telemetry"
+  | "realtime";
 
 export type DashboardAppProps = {
   workspace?: WorkspaceView;
@@ -117,7 +169,11 @@ export type RoleWorkspaceCard = {
 
 export type ThemeMode = "dark" | "light";
 
-export type SidebarSectionKey = "workspace" | "navigation" | "system" | "services";
+export type SidebarSectionKey =
+  | "workspace"
+  | "navigation"
+  | "system"
+  | "services";
 
 export type DashboardSectionLink = {
   id: string;
@@ -126,6 +182,18 @@ export type DashboardSectionLink = {
   href?: string;
 };
 
+export type ModalView =
+  | "incident-intake"
+  | "vehicle-command"
+  | "station-manage"
+  | "user-manage"
+  | "my-profile"
+  | "confirm-delete-user"
+  | "confirm-delete-station"
+  | "login"
+  | "incident-details"
+  | null;
+
 export type LoadingAction =
   | { kind: "idle" }
   | { kind: "login" }
@@ -133,4 +201,12 @@ export type LoadingAction =
   | { kind: "create-incident" }
   | { kind: "incident-status"; incidentID: string; status: string }
   | { kind: "vehicle-status"; vehicleID: string }
-  | { kind: "vehicle-location"; vehicleID: string };
+  | { kind: "vehicle-location"; vehicleID: string }
+  | { kind: "register-user" }
+  | { kind: "update-user"; userID?: string }
+  | { kind: "update-profile" }
+  | { kind: "delete-user"; userID?: string }
+  | { kind: "create-station" }
+  | { kind: "delete-station"; stationID?: string }
+  | { kind: "update-station"; stationID: string }
+  | { kind: "load-users" };

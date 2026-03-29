@@ -49,7 +49,7 @@ func (r *IncidentRepository) FindOpen(stationType string) ([]models.Incident, er
 	if stationType != "" {
 		query = query.Where("assigned_unit_type = ? OR assigned_unit_type IS NULL OR assigned_unit_type = ''", stationType)
 	}
-	
+
 	var incidents []models.Incident
 	err := query.Find(&incidents).Error
 	return incidents, err
@@ -57,4 +57,17 @@ func (r *IncidentRepository) FindOpen(stationType string) ([]models.Incident, er
 
 func (r *IncidentRepository) Update(incident *models.Incident) error {
 	return r.db.Save(incident).Error
+}
+
+func (r *IncidentRepository) FindActiveByAssignedUnitID(unitID uuid.UUID) (*models.Incident, error) {
+	var incident models.Incident
+	err := r.db.
+		Where("assigned_unit_id = ?", unitID).
+		Where("status != ?", models.StatusResolved).
+		Order("created_at DESC").
+		First(&incident).Error
+	if err != nil {
+		return nil, err
+	}
+	return &incident, nil
 }

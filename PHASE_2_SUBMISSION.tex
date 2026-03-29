@@ -1,0 +1,432 @@
+\documentclass[12pt,a4paper]{report}
+\usepackage[T1]{fontenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fancyhdr}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{lmodern}
+\usepackage{tikz}
+
+% TikZ Libraries for the Verification Diagram
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, calc, shapes.cylinders}
+
+% Code listing styling
+\lstset{
+	basicstyle=\ttfamily\scriptsize,
+	breaklines=true,
+	commentstyle=\itshape\color{gray},
+	keywordstyle=\bfseries\color{blue},
+	stringstyle=\color{red!70!black},
+	backgroundcolor=\color{lightgray!10},
+	frame=single,
+	captionpos=b,
+	showstringspaces=false,
+	numbers=left,
+	numberstyle=\tiny\color{gray},
+	stepnumber=1,
+	numbersep=8pt,
+	tabsize=4
+}
+
+% Header and Footer
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{CPEN 421 Phase 2}
+\lhead{Backend Implementation}
+\cfoot{\thepage}
+
+\renewcommand{\arraystretch}{1.3}
+
+\begin{document}
+
+% ============================================================================
+% CUSTOM TITLE PAGE
+% ============================================================================
+\begin{titlepage}
+	\begin{center}
+		\vspace*{1cm}
+
+		\includegraphics[width=0.3\textwidth]{logo.png}\\[1cm] % Ensure you have a logo.png in your folder
+
+		{\Large \textbf{UNIVERSITY OF GHANA}}\\[0.2cm]
+		{\large School of Engineering Sciences}\\[0.2cm]
+		{\large Department of Computer Engineering}\\[1cm]
+
+		\rule{\linewidth}{0.5mm} \\[0.4cm]
+		{\huge \textbf{National Emergency Response and Dispatch Platform}} \\[0.2cm]
+		{\large \textbf{Phase 2: Backend Implementation}} \\[0.4cm]
+		\rule{\linewidth}{0.5mm} \\[1.5cm]
+
+		{\Large \textbf{CPEN 421: Mobile and Web Design Architecture}}\\[1cm]
+
+		{\large \textbf{Group 5}}\\[0.5cm]
+
+		\begin{tabular}{ll}
+			\textbf{Joshua Nuku} & 11252857 \\
+			\textbf{Jeffery Quansah} & 11252855 \\
+		\end{tabular}
+
+		\vfill
+		
+		{\large \textbf{Source Code Repository:}}\\
+		\url{https://github.com/JoshNuku/emergency-dispatch-system.git}\\[0.8cm]
+
+		{\large \textbf{Lecturer:} Dr. Gifty Osei}\\
+		{\large \textbf{TA:} Nathaniel Adika}\\[0.8cm]
+
+		\large \today
+
+	\end{center}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+% ============================================================================
+% CHAPTER 1: IMPLEMENTATION OVERVIEW
+% ============================================================================
+\chapter{Implementation Overview}
+
+\section{Technology Stack}
+
+The backend is implemented as a distributed system utilizing a microservices architecture. To ensure high availability, type safety, and efficient concurrency, the services were built using the following core technologies:
+
+\begin{itemize}
+	\item \textbf{Language:} Go 1.22 (Golang)
+	\item \textbf{Web Framework:} Gin Gonic (for high-performance HTTP REST APIs)
+	\item \textbf{ORM:} GORM (for database abstraction and automated schema migrations)
+	\item \textbf{Database:} PostgreSQL with the PostGIS extension for spatial queries
+	\item \textbf{Message Broker:} RabbitMQ (for asynchronous, event-driven communication)
+	\item \textbf{Authentication:} JWT (JSON Web Tokens) leveraging the HS256 algorithm
+	\item \textbf{Security:} bcrypt for robust password hashing and Role-Based Access Control (RBAC)
+\end{itemize}
+
+\section{Codebase Structure}
+
+The project is structured as a monorepo following the Standard Go Project Layout, ensuring a clear separation of concerns between configuration, business logic, and API routing. The complete source code can be accessed at: \url{https://github.com/JoshNuku/emergency-dispatch-system.git}
+
+\begin{lstlisting}[language=bash, caption=Backend Monorepo Directory Structure, numbers=none]
+cpen421-backend/
+├── cmd/
+│   ├── auth/           # Entry point for Identity Service
+│   ├── incident/       # Entry point for Incident Service
+│   ├── dispatch/       # Entry point for Dispatch Service
+│   └── gateway/        # Entry point for Realtime WebSocket Hub
+├── internal/
+│   ├── models/         # GORM database entities
+│   ├── middleware/     # JWT and CORS interceptors
+│   ├── repository/     # Database access layer (PostgreSQL)
+│   └── config/         # Environment variable loaders (.env)
+├── pkg/
+│   ├── rabbitmq/       # Shared AMQP publisher/consumer logic
+│   └── logger/         # Centralized structured logging
+├── go.mod
+└── docker-compose.yml  # Infrastructure bootstrapping
+\end{lstlisting}
+
+\section{Service Breakdown}
+
+The system features five operational services working in tandem:
+
+\begin{enumerate}
+	\item \textbf{Identity \& Authentication Service (8081):} Manages user registration, credential verification, and session security.
+	\item \textbf{Emergency Incident Service (8082):} Core logic for recording emergency payloads and computing dispatch routing.
+	\item \textbf{Dispatch Tracking Service (8083):} Manages the responder vehicle registry and real-time GPS telemetry updates.
+	\item \textbf{Analytics \& Monitoring Service (8084):} Aggregates system metrics (e.g., response times) for operational insights.
+	\item \textbf{Realtime Gateway (8085):} A stateless WebSocket hub that broadcasts RabbitMQ live events to authenticated web clients.
+\end{enumerate}
+
+\newpage
+
+% ============================================================================
+% CHAPTER 2: MICROSERVICES IMPLEMENTATION
+% ============================================================================
+\chapter{Microservices Implementation}
+
+\section{Identity and Authentication Service}
+
+This service handles the user lifecycle and enforces security boundaries. We implemented the Repository Pattern to abstract GORM operations away from the HTTP controllers, allowing for easier unit testing.
+
+\begin{lstlisting}[language=Go, caption=User Model (GORM)]
+package models
+
+import "github.com/google/uuid"
+
+type User struct {
+	ID           uuid.UUID  `gorm:"type:uuid;primaryKey" json:"id"`
+	Name         string     `gorm:"size:255;not null" json:"name"`
+	Email        string     `gorm:"size:255;uniqueIndex;not null" json:"email"`
+	PasswordHash string     `gorm:"size:255;not null" json:"-"`
+	Role         string     `gorm:"size:50;not null" json:"role"`
+	StationID    *uuid.UUID `gorm:"type:uuid" json:"station_id,omitempty"`
+}
+\end{lstlisting}
+
+% Added newpage to prevent the large JWT listing from breaking awkwardly across pages
+\newpage
+\subsection{JWT Middleware}
+Stateless authentication is strictly enforced across all protected endpoints using a custom Gin middleware. It validates the HMAC signature of incoming Bearer tokens and extracts RBAC permissions.
+
+\begin{lstlisting}[language=Go, caption=JWT Validation Middleware]
+func JWTAuth(secret string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authHeader := c.GetHeader("Authorization")
+		tokenStr, found := strings.CutPrefix(authHeader, "Bearer ")
+		
+		if !found {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Missing token"})
+			return
+		}
+
+		claims := &Claims{}
+		token, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (interface{}, error) {
+			return[]byte(secret), nil
+		})
+		
+		if err != nil || !token.Valid {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
+			return
+		}
+		
+		// Inject role into context for downstream controllers
+		c.Set("role", claims.Role)
+		c.Set("user_id", claims.UserID)
+		c.Next()
+	}
+}
+\end{lstlisting}
+
+\newpage
+
+\section{Emergency Incident Service}
+
+The incident service acts as the operational core of the platform, utilizing PostGIS extensions to manage geographical data efficiently.
+
+\subsection{PostGIS Nearest Responder Selection}
+When a citizen reports an emergency, the system must autonomously identify the nearest available responder station (Police, Fire, or Ambulance). We leverage the PostGIS \texttt{ST\_Distance} and \texttt{ST\_MakePoint} functions to execute meter-based distance calculations directly within the database engine, avoiding memory-heavy application-side sorting.
+
+\begin{lstlisting}[language=Go, caption=Spatial Query for Nearest Responder]
+func (r *StationRepository) FindNearestAvailable(lat, lng float64, stationType string) (*models.ResponderStation, error) {
+	var station models.ResponderStation
+	
+	// Base query filters for availability and type
+	query := r.db.Where("type = ? AND is_available = true", stationType)
+	
+	// Distance calculation using PostGIS geography points
+	orderClause := fmt.Sprintf(
+		"ST_Distance(ST_MakePoint(longitude, latitude)::geography, ST_MakePoint(%f, %f)::geography) ASC",
+		lng, lat,
+	)
+	
+	// Execute spatial sort and fetch the top result
+	err := query.Order(orderClause).First(&station).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to locate nearby station: %w", err)
+	}
+	
+	return &station, nil
+}
+\end{lstlisting}
+
+\newpage
+
+% ============================================================================
+% CHAPTER 3: INTER-SERVICE COMMUNICATION
+% ============================================================================
+\chapter{Inter-service Communication}
+
+\section{Hybrid Communication Model}
+
+To balance system reliability, speed, and loose coupling, the backend implements a hybrid communication architecture:
+
+\begin{enumerate}
+	\item \textbf{Synchronous (HTTP/REST):} Utilized for critical operational pathways where immediate confirmation is mandatory (e.g., the Incident Service invoking the Dispatch Service to lock a vehicle reservation).
+	\item \textbf{Asynchronous (RabbitMQ):} Utilized for secondary, non-blocking operations such as telemetry updates and analytics aggregation, where eventual consistency is preferred to maximize throughput.
+\end{enumerate}
+
+\section{Message Queue Implementation}
+
+A robust RabbitMQ publisher was implemented within the Incident service. It utilizes a \texttt{topic} exchange named \texttt{emergency.events}, allowing dynamic routing of payloads based on the event type.
+
+\begin{lstlisting}[language=Go, caption=Event Publication Logic]
+func (p *Publisher) PublishEvent(routingKey string, payload interface{}) error {
+	event := map[string]interface{}{
+		"event_type": routingKey,
+		"payload":    payload,
+		"timestamp":  time.Now().UTC().Format(time.RFC3339),
+	}
+	
+	body, err := json.Marshal(event)
+	if err != nil {
+		return err
+	}
+	
+	return p.channel.Publish(
+		"emergency.events", // exchange name
+		routingKey,         // routing key (e.g., incident.created)
+		false, false,
+		amqp.Publishing{
+			ContentType:  "application/json",
+			DeliveryMode: amqp.Persistent, // Ensure messages survive broker restarts
+			Body:         body,
+		},
+	)
+}
+\end{lstlisting}
+
+\section{Realtime Gateway Consumer}
+
+To push updates to the web dashboard without polling, the Realtime Gateway maintains a continuous RabbitMQ consumption loop, fanning out JSON messages to authenticated WebSocket clients.
+
+\begin{lstlisting}[language=Go, caption=RabbitMQ Consumer in WebSocket Gateway]
+func (g *Gateway) ConsumeAndBroadcast(msgs <-chan amqp.Delivery) {
+	for msg := range msgs {
+		// Wrap raw RabbitMQ message into a structured UI envelope
+		wsMsg := map[string]interface{}{
+			"type":    msg.RoutingKey, // Evaluated by frontend reducers
+			"payload": string(msg.Body),
+		}
+		
+		// Broadcast to the thread-safe WebSocket Hub
+		g.hub.BroadcastJSON(wsMsg)
+		
+		// Acknowledge successful processing
+		msg.Ack(false)
+	}
+}
+\end{lstlisting}
+
+\newpage
+
+% ============================================================================
+% CHAPTER 4: DATABASE IMPLEMENTATION
+% ============================================================================
+\chapter{Database Implementation}
+
+\section{Data Isolation}
+
+Adhering strictly to microservice design principles, the architecture implements Database-per-Service isolation. This bounded context ensures that a complete failure or deadlock in the Analytics database has zero impact on the core incident reporting pipeline.
+
+\begin{table}[H]
+\centering\small
+\caption{Microservice Database Specifications}
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{Service} & \textbf{Database Schema} & \textbf{Required Extensions} \\
+\hline
+Authentication & \texttt{auth\_db} & \texttt{uuid-ossp} \\
+\hline
+Incident Management & \texttt{incident\_db} & \texttt{postgis}, \texttt{uuid-ossp} \\
+\hline
+Dispatch \& Telemetry & \texttt{dispatch\_db} & \texttt{postgis}, \texttt{uuid-ossp} \\
+\hline
+Analytics Aggregation & \texttt{analytics\_db} & \texttt{uuid-ossp} \\
+\hline
+\end{tabular}
+\end{table}
+
+\section{Schema Evolution \& Bootstrapping}
+
+GORM's \texttt{AutoMigrate} feature was utilized during the application bootstrap phase to dynamically ensure that backend table structures are flawlessly synchronized with the compiled Go models. 
+
+\begin{lstlisting}[language=Go, caption=Database Bootstrap Sequence]
+func InitDB(cfg *config.Config) (*gorm.DB, error) {
+	dsn := fmt.Sprintf(
+		"host=%s user=%s password=%s dbname=%s port=%s sslmode=disable", 
+		cfg.DBHost, cfg.DBUser, cfg.DBPass, cfg.DBName, cfg.DBPort,
+	)
+	
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Info),
+	})
+	if err != nil {
+		return nil, err
+	}
+	
+	// Ensure spatial capabilities are active
+	db.Exec("CREATE EXTENSION IF NOT EXISTS \"postgis\"")
+	db.Exec("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"")
+	
+	// Synchronize schemas safely
+	err = db.AutoMigrate(&models.Incident{}, &models.ResponderStation{})
+	
+	return db, err
+}
+\end{lstlisting}
+
+\newpage
+
+% ============================================================================
+% CHAPTER 5: VERIFICATION AND TESTING
+% ============================================================================
+\chapter{Verification and Testing}
+
+\section{API Verification}
+
+To ensure endpoint robustness, all routes were extensively tested via Postman collections and automated HTTP tests. The Identity service was verified against multiple security scenarios:
+\begin{itemize}
+	\item \textbf{Token Issuance:} Successful registration and login mapping to valid JWT generation.
+	\item \textbf{Expiration Validation:} Automatic rejection of tokens older than the 15-minute TTL.
+	\item \textbf{RBAC Rejection:} Unauthorized roles (e.g., Police Admin) correctly receiving HTTP 403 Forbidden when attempting to access Hospital metrics.
+\end{itemize}
+
+\section{System Integration Test Flow}
+
+The comprehensive lifecycle of the backend was verified through a simulated end-to-end incident dispatch flow. The architectural pathway of this successful test is illustrated in Figure \ref{fig:integration_flow}.
+
+\begin{figure}[H]
+\centering
+% Added resizebox to perfectly fit the diagram inside page margins and fix overflow issues
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+    node distance=1.5cm and 2cm,
+    process/.style={rectangle, draw, fill=blue!10, text width=3cm, text centered, rounded corners, minimum height=1cm, font=\small},
+    db/.style={cylinder, shape border rotate=90, draw, fill=orange!10, text width=2cm, text centered, minimum height=1.2cm, font=\scriptsize},
+    queue/.style={rectangle, draw, fill=purple!10, text width=3cm, text centered, minimum height=1cm, font=\small\bfseries},
+    arrow/.style={thick, ->, >=stealth}
+]
+
+    % Nodes
+    \node[process, fill=green!10] (client) {1. API Client\\(Postman)};
+    \node[process] (incident) [right=of client] {2. Incident Service};
+    \node[db] (postgis) [below=of incident] {3. PostGIS DB\\(Spatial Query)};
+    \node[queue] (rmq) [right=of incident] {4. RabbitMQ\\(Exchange)};
+    \node[process] (gateway) [right=of rmq] {5. Realtime Gateway};
+    \node[process, fill=teal!10] (dashboard) [below=of gateway] {6. Web Dashboard\\(WebSocket)};
+    \node[process] (analytics) [above=of rmq] {Analytics Service};
+
+    % Arrows
+    \draw[arrow] (client) -- node[above, font=\scriptsize] {POST /incidents} (incident);
+    \draw[arrow, <->] (incident) -- node[left, font=\scriptsize] {ST\_Distance} (postgis);
+    \draw[arrow] (incident) -- node[above, font=\scriptsize] {Publish} (rmq);
+    \draw[arrow] (rmq) -- node[above, font=\scriptsize] {Consume} (gateway);
+    \draw[arrow] (rmq) -- node[left, font=\scriptsize] {Consume} (analytics);
+    \draw[arrow] (gateway) -- node[right, font=\scriptsize] {WS Push} (dashboard);
+
+\end{tikzpicture}%
+}
+\caption{Event-Driven Integration Test Pathway}
+\label{fig:integration_flow}
+\end{figure}
+
+The steps executed during the test sequence were:
+\begin{enumerate}
+	\item \textbf{Submission:} An emergency payload (lat/lng coordinates) was posted to \texttt{/incidents}.
+	\item \textbf{Processing:} The PostGIS database executed the spatial query, correctly bypassing two distant stations and returning the nearest available ambulance unit.
+	\item \textbf{Communication:} An \texttt{incident.dispatched} message was reliably published to the RabbitMQ exchange.
+	\item \textbf{Reception:} The Realtime Gateway consumed the queue message and pushed it to an active WebSocket connection.
+	\item \textbf{Persistence:} Concurrently, the Analytics service absorbed the event to record the incident dispatch times for historical reporting.
+\end{enumerate}
+
+\section{Conclusion}
+
+Phase 2 successfully delivered a scalable, secure, and event-driven backend architecture. The integration of GORM, PostGIS, and RabbitMQ has proven highly effective at fulfilling the platform's core requirements. The backend is fully operational and ready for Phase 3: the implementation of the web-based client interface.
+
+\end{document}

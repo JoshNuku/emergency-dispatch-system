@@ -48,9 +48,9 @@ func (h *HospitalCapacityLog) BeforeCreate(tx *gorm.DB) error {
 
 type ResponseTimeResult struct {
 	IncidentType string  `json:"incident_type"`
-	AvgSeconds   float64 `json:"avg_response_time_seconds"`
-	MinSeconds   int     `json:"min_response_time_seconds"`
-	MaxSeconds   int     `json:"max_response_time_seconds"`
+	AvgSeconds   float64 `json:"avg_seconds"`
+	MinSeconds   int     `json:"min_seconds"`
+	MaxSeconds   int     `json:"max_seconds"`
 	Count        int     `json:"count"`
 }
 

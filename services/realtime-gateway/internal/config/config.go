@@ -9,7 +9,7 @@ type Config struct {
 
 func Load() *Config {
 	return &Config{
-		Port:      getEnv("REALTIME_PORT", "8085"),
+		Port:      getEnv("REALTIME_PORT", getEnv("PORT", "8085")),
 		JWTSecret: getEnv("JWT_SECRET", "supersecretkey"),
 	}
 }

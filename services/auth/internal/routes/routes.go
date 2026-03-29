@@ -18,6 +18,9 @@ func Setup(router *gin.Engine, handler *handlers.AuthHandler, jwtSecret string) 
 
 		// Protected routes
 		auth.GET("/profile", middleware.JWTAuth(jwtSecret), handler.Profile)
+		auth.PUT("/profile", middleware.JWTAuth(jwtSecret), handler.UpdateProfile)
 		auth.GET("/users", middleware.JWTAuth(jwtSecret), middleware.RequireRole(models.RoleSystemAdmin), handler.ListUsers)
+		auth.PUT("/users/:id", middleware.JWTAuth(jwtSecret), middleware.RequireRole(models.RoleSystemAdmin), handler.UpdateUser)
+		auth.DELETE("/users/:id", middleware.JWTAuth(jwtSecret), middleware.RequireRole(models.RoleSystemAdmin), handler.DeleteUser)
 	}
 }

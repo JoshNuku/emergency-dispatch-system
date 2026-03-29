@@ -23,6 +23,7 @@ try {
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
+  output: "standalone",
 };
 
 export default nextConfig;

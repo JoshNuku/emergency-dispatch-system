@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"fmt"
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
@@ -48,8 +50,30 @@ func (r *VehicleRepository) FindAvailable(stationID string) ([]models.Vehicle, e
 	return vehicles, err
 }
 
+func (r *VehicleRepository) FindByLicensePlate(plate string) (*models.Vehicle, error) {
+	var vehicle models.Vehicle
+	err := r.db.Where("license_plate = ?", plate).First(&vehicle).Error
+	if err != nil {
+		return nil, err
+	}
+	return &vehicle, nil
+}
+
+func (r *VehicleRepository) FindByDriverID(driverID uuid.UUID) (*models.Vehicle, error) {
+	var vehicle models.Vehicle
+	err := r.db.Where("driver_id = ?", driverID).First(&vehicle).Error
+	if err != nil {
+		return nil, err
+	}
+	return &vehicle, nil
+}
+
 func (r *VehicleRepository) Update(vehicle *models.Vehicle) error {
 	return r.db.Save(vehicle).Error
+}
+
+func (r *VehicleRepository) DeleteByID(id uuid.UUID) error {
+	return r.db.Where("id = ?", id).Delete(&models.Vehicle{}).Error
 }
 
 // Location history operations
@@ -76,4 +100,26 @@ func (r *VehicleRepository) GetLocationHistory(vehicleID uuid.UUID, limit int) (
 		Limit(limit).
 		Find(&history).Error
 	return history, err
+}
+
+// FindNearestAvailable uses PostGIS to find the nearest available vehicle of a specific type.
+func (r *VehicleRepository) FindNearestAvailable(lat, lng float64, vehicleType string) (*models.Vehicle, error) {
+	var vehicle models.Vehicle
+
+	query := r.db.Where("status = ? AND vehicle_type = ?", models.VehicleAvailable, vehicleType)
+
+	// Use PostGIS ST_Distance to order by distance from the incident location
+	orderClause := fmt.Sprintf(
+		"ST_Distance(ST_MakePoint(longitude, latitude)::geography, ST_MakePoint(%f, %f)::geography) ASC",
+		lng, lat,
+	)
+
+	err := query.
+		Order(orderClause).
+		First(&vehicle).Error
+
+	if err != nil {
+		return nil, err
+	}
+	return &vehicle, nil
 }

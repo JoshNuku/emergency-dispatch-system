@@ -6,8 +6,11 @@ import type {
   CreateIncidentInput,
   LiveState,
   LoadingAction,
+  ModalView,
+  RegisterUserInput,
   SidebarSectionKey,
   ThemeMode,
+  UserProfile,
 } from "@/types/frontend";
 
 export type DashboardStoreState = {
@@ -30,6 +33,20 @@ export type DashboardStoreState = {
   vehicleStatus: string;
   vehicleLatitude: string;
   vehicleLongitude: string;
+  // User management
+  users: UserProfile[];
+  registerForm: RegisterUserInput;
+  editingUserID: string;
+  // Station management
+  editingStationID: string;
+  // Map selection
+  isPickingLocation: boolean;
+  lastMapSelectedCoords: { lat: number; lng: number } | null;
+  // Modal
+  openModal: ModalView;
+  selectedIncidentID: string | null;
+  // Driver live location sharing
+  locationSharingEnabled: boolean;
 };
 
 const emptyLiveState: LiveState = {
@@ -39,6 +56,9 @@ const emptyLiveState: LiveState = {
   stations: [],
   dashboard: null,
   responseTimes: [],
+  incidentsByRegion: [],
+  resourceUtilization: [],
+  hospitalCapacity: [],
 };
 
 const initialState: DashboardStoreState = {
@@ -73,6 +93,21 @@ const initialState: DashboardStoreState = {
   vehicleStatus: "available",
   vehicleLatitude: "5.6512",
   vehicleLongitude: "-0.1869",
+  users: [],
+  registerForm: {
+    name: "",
+    email: "",
+    password: "",
+    role: "hospital_admin",
+    station_id: "",
+  },
+  editingUserID: "",
+  editingStationID: "",
+  isPickingLocation: false,
+  lastMapSelectedCoords: null,
+  openModal: null,
+  selectedIncidentID: null,
+  locationSharingEnabled: false,
 };
 
 let currentState = initialState;
@@ -92,7 +127,11 @@ export const dashboardStore = {
       listeners.delete(listener);
     };
   },
-  setState(update: Partial<DashboardStoreState> | ((state: DashboardStoreState) => Partial<DashboardStoreState>)) {
+  setState(
+    update:
+      | Partial<DashboardStoreState>
+      | ((state: DashboardStoreState) => Partial<DashboardStoreState>),
+  ) {
     const next = typeof update === "function" ? update(currentState) : update;
     currentState = { ...currentState, ...next };
     emitChange();
@@ -105,5 +144,9 @@ export const dashboardStore = {
 };
 
 export function useDashboardStore() {
-  return useSyncExternalStore(dashboardStore.subscribe, dashboardStore.getState, dashboardStore.getState);
+  return useSyncExternalStore(
+    dashboardStore.subscribe,
+    dashboardStore.getState,
+    dashboardStore.getState,
+  );
 }

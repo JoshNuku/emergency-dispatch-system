@@ -14,6 +14,10 @@ func NewAnalyticsRepository(db *gorm.DB) *AnalyticsRepository {
 	return &AnalyticsRepository{db: db}
 }
 
+func (r *AnalyticsRepository) GetDB() *gorm.DB {
+	return r.db
+}
+
 func (r *AnalyticsRepository) UpsertIncidentMetric(metric *models.IncidentMetric) error {
 	// Try to find existing metric for this incident
 	var existing models.IncidentMetric
@@ -27,6 +31,18 @@ func (r *AnalyticsRepository) UpsertIncidentMetric(metric *models.IncidentMetric
 
 	// Update existing metrics
 	updates := map[string]interface{}{}
+	if metric.IncidentType != "" {
+		updates["incident_type"] = metric.IncidentType
+	}
+	if metric.Latitude != 0 {
+		updates["latitude"] = metric.Latitude
+	}
+	if metric.Longitude != 0 {
+		updates["longitude"] = metric.Longitude
+	}
+	if metric.Region != "" {
+		updates["region"] = metric.Region
+	}
 	if metric.ResponderType != "" {
 		updates["responder_type"] = metric.ResponderType
 	}
