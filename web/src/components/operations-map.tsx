@@ -309,144 +309,67 @@ export default function OperationsMap({ points, className, onMapClick, focusPoin
             }
           });
 
-          // Add symbol layer for incidents (icon + label)
-          map.addLayer({
-            id: "incident-symbol",
-            type: "symbol",
-            source: sourceId,
-            filter: ["==", ["get", "tone"], "incident"],
-            layout: {
-              "icon-image": ["coalesce", ["get", "icon"], "icon-incident"],
-              "icon-size": 0.9,
-              "icon-allow-overlap": true,
-              "icon-ignore-placement": true,
-              "text-field": ["get", "label"],
-              "text-font": ["Open Sans Semibold", "Arial Unicode MS Bold"],
-              "text-offset": [1, 0],
-              "text-size": 12,
-              "text-anchor": "left"
-            },
-            paint: {
-              "text-color": "#ffffff",
-              "text-halo-color": "#000",
-              "text-halo-width": 2
-            }
-          });
-
-          // station points are rendered as symbol layer (icon + label) further below
-        }
-
-        const entries = Object.entries(VEHICLE_ICONS);
-        const iconPromises = entries.map(([name, svg]) => addSvgImageToMap(map as any, name, svg));
-
-        void Promise.all(iconPromises).then((results) => {
-          if (!map.getStyle()) return;
-          const loadedIcons = results.filter(Boolean) as string[];
-          const missingIcons = new Set(Object.keys(VEHICLE_ICONS).filter(name => !loadedIcons.includes(name)));
-
-          if (!map.getLayer("vehicle-symbol")) {
+          if (!map.getLayer("vehicle-point")) {
             map.addLayer({
-              id: "vehicle-symbol",
-              type: "symbol",
+              id: "vehicle-point",
+              type: "circle",
               source: sourceId,
               filter: ["==", ["get", "tone"], "vehicle"],
-              layout: {
-                "icon-image": ["coalesce", ["get", "icon"], "icon-vehicle"],
-                "icon-size": 0.9,
-                "icon-allow-overlap": true,
-                "icon-ignore-placement": true
+              paint: {
+                "circle-color": TONE_COLOR.vehicle,
+                "circle-radius": 7,
+                "circle-stroke-width": 2,
+                "circle-stroke-color": "#fff"
               }
             });
-
-            map.on("click", "vehicle-symbol", (e) => {
-              const feats = map.queryRenderedFeatures(e.point, { layers: ["vehicle-symbol"] });
-              if (!feats.length) return;
-              const f = feats[0];
-              const props = f.properties || {};
-              const coords = (f.geometry as any)?.coordinates as number[];
-              if (!coords) return;
-              const html = `
-                <div style="padding:6px 4px;min-width:180px">
-                  <div style="font-weight:700;font-size:13px;color:#ffffff">${escapeHtml(String(props.label || "Unit"))}</div>
-                  <div style="margin-top:4px;color:#e0e0e0;font-size:12px">${escapeHtml(String(props.detail || ""))}</div>
-                  <div style="margin-top:6px;font-size:11px;color:#d0d0d0">Lat ${coords[1].toFixed(5)}, Lng ${coords[0].toFixed(5)}</div>
-                </div>
-              `;
-              new (mapboxglLocal as any).Popup({ offset: 18 }).setLngLat(coords).setHTML(html).addTo(map);
-            });
-
-            map.on("mouseenter", "vehicle-symbol", () => (map.getCanvas().style.cursor = "pointer"));
-            map.on("mouseleave", "vehicle-symbol", () => (map.getCanvas().style.cursor = ""));
           }
-          // incident symbol click handler
-          if (!map.getLayer("incident-symbol-clickable")) {
-            // reuse the incident-symbol layer for clicks by listening on the id we added
-            map.on("click", "incident-symbol", (e) => {
-              const feats = map.queryRenderedFeatures(e.point, { layers: ["incident-symbol"] });
-              if (!feats.length) return;
-              const f = feats[0];
-              const props = f.properties || {};
-              const coords = (f.geometry as any)?.coordinates as number[];
-              if (!coords) return;
-              const html = `
-                <div style="padding:6px 4px;min-width:200px">
-                  <div style="font-weight:700;font-size:13px;color:#ffffff">${escapeHtml(String(props.label || "Incident"))}</div>
-                  <div style="margin-top:4px;color:#e0e0e0;font-size:12px">${escapeHtml(String(props.detail || ""))}</div>
-                  <div style="margin-top:6px;font-size:11px;color:#d0d0d0">Lat ${coords[1].toFixed(5)}, Lng ${coords[0].toFixed(5)}</div>
-                </div>
-              `;
-              new (mapboxglLocal as any).Popup({ offset: 18 }).setLngLat(coords).setHTML(html).addTo(map);
-            });
-            map.on("mouseenter", "incident-symbol", () => (map.getCanvas().style.cursor = "pointer"));
-            map.on("mouseleave", "incident-symbol", () => (map.getCanvas().style.cursor = ""));
-          }
-          // Add symbol layer for stations (icon + label)
-          if (!map.getLayer("station-symbol")) {
+
+          if (!map.getLayer("station-point")) {
             map.addLayer({
-              id: "station-symbol",
-              type: "symbol",
+              id: "station-point",
+              type: "circle",
               source: sourceId,
               filter: ["==", ["get", "tone"], "station"],
-              layout: {
-                "icon-image": ["coalesce", ["get", "icon"], "icon-station"],
-                "icon-size": 0.9,
-                "icon-allow-overlap": true,
-                "icon-ignore-placement": true,
-                "text-field": ["get", "label"],
-                "text-font": ["Open Sans Semibold", "Arial Unicode MS Bold"],
-                "text-offset": [1, 0],
-                "text-size": 12,
-                "text-anchor": "left"
-              },
               paint: {
-                "text-color": "#ffffff",
-                "text-halo-color": "#000",
-                "text-halo-width": 2
+                "circle-color": TONE_COLOR.station,
+                "circle-radius": 7,
+                "circle-stroke-width": 2,
+                "circle-stroke-color": "#fff"
               }
             });
+          }
+        }
 
-            map.on("click", "station-symbol", (e) => {
-              const feats = map.queryRenderedFeatures(e.point, { layers: ["station-symbol"] });
+        const mapAny = map as any;
+        if (!mapAny.__opsMapClickHandlersBound) {
+          const popupForLayer = (layerId: string, fallbackTitle: string, minWidthPx: number) => {
+            map.on("click", layerId, (e) => {
+              const feats = map.queryRenderedFeatures(e.point, { layers: [layerId] });
               if (!feats.length) return;
               const f = feats[0];
               const props = f.properties || {};
               const coords = (f.geometry as any)?.coordinates as number[];
               if (!coords) return;
               const html = `
-                <div style="padding:6px 4px;min-width:180px">
-                  <div style="font-weight:700;font-size:13px;color:#ffffff">${escapeHtml(String(props.label || "Station"))}</div>
+                <div style="padding:6px 4px;min-width:${minWidthPx}px">
+                  <div style="font-weight:700;font-size:13px;color:#ffffff">${escapeHtml(String(props.label || fallbackTitle))}</div>
                   <div style="margin-top:4px;color:#e0e0e0;font-size:12px">${escapeHtml(String(props.detail || ""))}</div>
                   <div style="margin-top:6px;font-size:11px;color:#d0d0d0">Lat ${coords[1].toFixed(5)}, Lng ${coords[0].toFixed(5)}</div>
                 </div>
               `;
               new (mapboxglLocal as any).Popup({ offset: 18 }).setLngLat(coords).setHTML(html).addTo(map);
             });
-            map.on("mouseenter", "station-symbol", () => (map.getCanvas().style.cursor = "pointer"));
-            map.on("mouseleave", "station-symbol", () => (map.getCanvas().style.cursor = ""));
-          }
+            map.on("mouseenter", layerId, () => (map.getCanvas().style.cursor = "pointer"));
+            map.on("mouseleave", layerId, () => (map.getCanvas().style.cursor = ""));
+          };
 
-          if (missingIcons.size > 0) createDomMarkersFromFeatures(features, missingIcons);
-        });
+          popupForLayer("unclustered-point", "Incident", 200);
+          popupForLayer("vehicle-point", "Unit", 180);
+          popupForLayer("station-point", "Station", 180);
+          mapAny.__opsMapClickHandlersBound = true;
+        }
+
+        createDomMarkersFromFeatures(features);
 
       } catch (e) {}
     };

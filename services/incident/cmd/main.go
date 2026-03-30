@@ -14,6 +14,7 @@ import (
 	"emergency-dispatch/services/incident/internal/mq"
 	"emergency-dispatch/services/incident/internal/repository"
 	"emergency-dispatch/services/incident/internal/routes"
+	"emergency-dispatch/services/incident/internal/seed"
 	"emergency-dispatch/services/incident/internal/services"
 )
 
@@ -37,6 +38,10 @@ func main() {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
 	log.Println("Database migrated")
+
+	if err := seed.Run(db); err != nil {
+		log.Fatalf("Failed to seed incident demo data: %v", err)
+	}
 
 	// RabbitMQ publisher
 	publisher, err := mq.NewPublisher(cfg.RabbitURL)

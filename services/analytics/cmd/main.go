@@ -34,6 +34,9 @@ func main() {
 	}
 
 	db.AutoMigrate(&models.IncidentMetric{}, &models.HospitalCapacityLog{})
+	if err := seed.Run(db); err != nil {
+		log.Fatalf("Failed to seed analytics demo data: %v", err)
+	}
 
 	repo := repository.NewAnalyticsRepository(db)
 	handler := handlers.NewAnalyticsHandler(repo, cfg.DispatchServiceURL)

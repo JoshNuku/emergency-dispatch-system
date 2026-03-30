@@ -13,6 +13,7 @@ import (
 	"emergency-dispatch/services/auth/internal/models"
 	"emergency-dispatch/services/auth/internal/repository"
 	"emergency-dispatch/services/auth/internal/routes"
+	"emergency-dispatch/services/auth/internal/seed"
 )
 
 func main() {
@@ -33,6 +34,10 @@ func main() {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
 	log.Println("Database migrated")
+
+	if err := seed.Run(db); err != nil {
+		log.Fatalf("Failed to seed auth demo data: %v", err)
+	}
 
 	// Initialize layers
 	repo := repository.NewUserRepository(db)
