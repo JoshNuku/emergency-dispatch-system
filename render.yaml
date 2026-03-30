@@ -121,26 +121,3 @@ services:
         sync: false
       - key: CORS_ALLOW_ORIGINS
         sync: false
-
-  - type: web
-    name: eds-web
-    runtime: node
-    rootDir: web
-    plan: free
-    buildCommand: npm ci && npm run build
-    startCommand: npm run start
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: NEXT_PUBLIC_AUTH_API_URL
-        sync: false
-      - key: NEXT_PUBLIC_INCIDENT_API_URL
-        sync: false
-      - key: NEXT_PUBLIC_DISPATCH_API_URL
-        sync: false
-      - key: NEXT_PUBLIC_ANALYTICS_API_URL
-        sync: false
-      - key: NEXT_PUBLIC_WS_URL
-        sync: false
-      - key: NEXT_PUBLIC_MAPBOX_TOKEN
-        sync: false
