@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { useDashboardStore, dashboardStore } from "@/store/dashboard-store";
 import OperationsMap from "@/components/operations-map";
 import { titleCase } from "@/lib/normalizers";
@@ -33,13 +33,6 @@ export default function RealtimeVehiclesPage() {
     VEHICLE_TYPE_OPTIONS.forEach((o) => (m[o.value] = true));
     return m;
   });
-
-  useEffect(() => {
-    // ensure any new types default to enabled
-    for (const o of VEHICLE_TYPE_OPTIONS) {
-      if (!(o.value in filters)) setFilters((f) => ({ ...f, [o.value]: true }));
-    }
-  }, []);
 
   const toggleFilter = (t: string) => setFilters((f) => ({ ...f, [t]: !f[t] }));
 

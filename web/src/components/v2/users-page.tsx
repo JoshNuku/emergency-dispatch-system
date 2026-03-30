@@ -6,7 +6,7 @@ import { dashboardStore, useDashboardStore } from "@/store/dashboard-store";
 import { deleteUser, getUsers, updateUser } from "@/lib/api";
 import ConfirmModal from "@/components/v2/ui/confirm-modal";
 import { ensureArray, titleCase } from "@/lib/normalizers";
-import type { UserProfile } from "@/types/frontend";
+import type { Station, UserProfile } from "@/types/frontend";
 
 // Map user roles to the station type they should be associated with (if any)
 function roleToStationType(role?: string): string | null {
@@ -29,7 +29,7 @@ function roleToStationType(role?: string): string | null {
 export function UsersPage() {
   const { token, users, loadingAction, state } = useDashboardStore();
   const setStore = dashboardStore.setState;
-  const safeStations = useMemo(() => ensureArray<(typeof state.stations)[number]>(state.stations), [state.stations]);
+  const safeStations = useMemo(() => ensureArray<Station>(state.stations), [state.stations]);
   const [editingUserID, setEditingUserID] = useState("");
   const [editName, setEditName] = useState("");
   const [editRole, setEditRole] = useState("hospital_admin");

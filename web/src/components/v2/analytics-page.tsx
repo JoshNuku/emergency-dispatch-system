@@ -29,7 +29,7 @@ export function AnalyticsPage() {
   const { state } = useDashboardStore();
 
   const dashboard = state.dashboard;
-  const liveIncidents = state.incidents ?? [];
+  const liveIncidents = useMemo(() => state.incidents ?? [], [state.incidents]);
   const allIncidentsCount = liveIncidents.length;
   const activeIncidentsCount = useMemo(
     () => liveIncidents.filter((incident) => (incident.status ?? "").toLowerCase() !== "resolved").length,

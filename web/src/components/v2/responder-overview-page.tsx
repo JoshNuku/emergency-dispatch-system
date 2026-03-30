@@ -44,10 +44,10 @@ export function ResponderOverviewPage() {
   const { state, users, token, loadingAction, locationSharingEnabled } = useDashboardStore();
   const setStore = dashboardStore.setState;
   const profile = state.profile;
-  const incidents = Array.isArray(state.incidents) ? state.incidents : [];
-  const vehicles = Array.isArray(state.vehicles) ? state.vehicles : [];
-  const stations = Array.isArray(state.stations) ? state.stations : [];
-  const userList = Array.isArray(users) ? users : [];
+  const incidents = useMemo(() => (Array.isArray(state.incidents) ? state.incidents : []), [state.incidents]);
+  const vehicles = useMemo(() => (Array.isArray(state.vehicles) ? state.vehicles : []), [state.vehicles]);
+  const stations = useMemo(() => (Array.isArray(state.stations) ? state.stations : []), [state.stations]);
+  const userList = useMemo(() => (Array.isArray(users) ? users : []), [users]);
 
   const isAdmin = profile?.role === "system_admin" || (profile?.role || "").includes("admin");
   const [mapFocus, setMapFocus] = useState<{

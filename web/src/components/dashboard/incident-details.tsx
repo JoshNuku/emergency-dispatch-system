@@ -1,7 +1,7 @@
 "use client";
 
 import type { Incident } from "@/types/frontend";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { updateIncidentStatus } from "@/lib/api";
 import { dashboardStore } from "@/store/dashboard-store";
@@ -13,6 +13,13 @@ export function IncidentDetails({ incidentId }: { incidentId: string }) {
   const { token, state, actionError } = useDashboardStore();
   const setStore = (update: StoreUpdate) => dashboardStore.setState(update);
   const incident = state.incidents.find((i) => i.id === incidentId);
+  const [lastStatus, setLastStatus] = useState<string>(incident?.status ?? "reported");
+
+  useEffect(() => {
+    if (incident?.status) {
+      setLastStatus(incident.status);
+    }
+  }, [incident?.status]);
 
   if (!incident) {
     return (
@@ -21,8 +28,6 @@ export function IncidentDetails({ incidentId }: { incidentId: string }) {
       </div>
     );
   }
-
-  const [lastStatus, setLastStatus] = useState<string>(incident.status);
 
   const handleStatusChange = async (status: string) => {
     setLastStatus(status);

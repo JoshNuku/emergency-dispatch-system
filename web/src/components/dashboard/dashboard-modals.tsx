@@ -1,7 +1,6 @@
 "use client";
 
 import { Plus } from "lucide-react";
-import type { FormEvent } from "react";
 
 import { dashboardStore, useDashboardStore } from "@/store/dashboard-store";
 import type { ModalView } from "@/types/frontend";

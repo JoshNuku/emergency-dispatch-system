@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useRef, useEffect } from "react";
+import { useMemo, useState, useRef, useEffect, type CSSProperties } from "react";
 
 import {
   AlertTriangleIcon,
@@ -17,7 +17,7 @@ import { averageResponseTimeFromIncidents, formatSeconds, titleCase } from "@/li
 import { dashboardStore, useDashboardStore } from "@/store/dashboard-store";
 import type { Incident, Vehicle, Station } from "@/types/frontend";
 import { Card, CardBody, CardHeader } from "@/components/v2/ui/card";
-// @ts-ignore
+// @ts-expect-error react-window types may not align with current React version in this project
 import { FixedSizeList as List } from "react-window";
 
 // ── Type helpers ─────────────────────────────────────────────────────────────
@@ -34,10 +34,6 @@ function getDescription(i: Incident): string {
   if (i.citizen_phone) parts.push(`(${i.citizen_phone})`);
   if (i.notes) parts.push(`— ${i.notes}`);
   return parts.join(" ");
-}
-
-function getUnit(i: Incident): string {
-  return i.assigned_unit_id || "Unassigned";
 }
 
 function getStatus(i: Incident): string {
@@ -443,7 +439,7 @@ export function OverviewPage() {
     const setH = () => {
       try {
         setListHeight(node.clientHeight || 420);
-      } catch (e) {
+      } catch {
         /* ignore */
       }
     };
@@ -633,7 +629,7 @@ export function OverviewPage() {
                 </div>
               ) : dispatches.length > 30 ? (
                 <List height={listHeight} itemCount={dispatches.length} itemSize={140} width="100%">
-                  {({ index, style }: { index: number; style: any }) => {
+                  {({ index, style }: { index: number; style: CSSProperties }) => {
                     const incident = dispatches[index];
                     return (
                       <div style={style} key={incident.id}>

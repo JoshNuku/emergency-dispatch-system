@@ -28,10 +28,18 @@ export type {
   Vehicle,
 } from "@/types/frontend";
 
-const authApiUrl = process.env.NEXT_PUBLIC_AUTH_API_URL ?? "http://localhost:8081";
-const incidentApiUrl = process.env.NEXT_PUBLIC_INCIDENT_API_URL ?? "http://localhost:8082";
-const dispatchApiUrl = process.env.NEXT_PUBLIC_DISPATCH_API_URL ?? "http://localhost:8083";
-const analyticsApiUrl = process.env.NEXT_PUBLIC_ANALYTICS_API_URL ?? "http://localhost:8084";
+function requiredEnv(name: string): string {
+  const value = process.env[name as keyof NodeJS.ProcessEnv];
+  if (!value || !value.trim()) {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+  return value.trim();
+}
+
+const authApiUrl = requiredEnv("NEXT_PUBLIC_AUTH_API_URL");
+const incidentApiUrl = requiredEnv("NEXT_PUBLIC_INCIDENT_API_URL");
+const dispatchApiUrl = requiredEnv("NEXT_PUBLIC_DISPATCH_API_URL");
+const analyticsApiUrl = requiredEnv("NEXT_PUBLIC_ANALYTICS_API_URL");
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {

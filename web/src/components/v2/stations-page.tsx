@@ -68,11 +68,6 @@ export function StationsPage() {
     }
   }
 
-  async function removeStation(stationID: string) {
-    // open confirm modal
-    setPendingID(stationID);
-  }
-
   async function confirmRemoveStation() {
     if (!token || !pendingID) return;
     setPendingID(pendingID);

@@ -102,7 +102,7 @@ export function DispatchesSection(props: {
             className="p-5 rounded-2xl border border-zinc-800 bg-[#0c0c0c] flex items-center justify-between hover:border-zinc-700 transition-all cursor-pointer"
           >
             <div>
-              <div className="text-sm font-bold">{inc.citizen_name}'s Request</div>
+              <div className="text-sm font-bold">{inc.citizen_name}&apos;s Request</div>
               <div className="text-[11px] text-zinc-500 uppercase tracking-widest mt-1">
                 {inc.incident_type} • {formatIncidentCoords(inc.latitude, inc.longitude)}
               </div>

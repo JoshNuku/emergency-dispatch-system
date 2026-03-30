@@ -192,7 +192,7 @@ function eventSeverity(type: string, payload?: unknown): "low" | "info" | "warni
       }
     }
     return "info";
-  } catch (e) {
+  } catch {
     return "info";
   }
 }
@@ -209,7 +209,7 @@ function maybeNotifyDesktop(title: string, body: string, severity: string) {
       try {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const n = new Notification(title, { body });
-      } catch (e) {
+      } catch {
         /* ignore */
       }
     } else if (Notification.permission !== "denied") {
@@ -218,13 +218,13 @@ function maybeNotifyDesktop(title: string, body: string, severity: string) {
           try {
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const n = new Notification(title, { body });
-          } catch (e) {
+          } catch {
             /* ignore */
           }
         }
       });
     }
-  } catch (e) {
+  } catch {
     /* ignore */
   }
 }
@@ -391,6 +391,7 @@ export function AppShell({
     isPickingLocation,
     lastMapSelectedCoords,
     editingStationID,
+    updateStationField,
     setStore,
   ]);
 
@@ -404,10 +405,7 @@ export function AppShell({
     () => ensureArray<Vehicle>(state.vehicles),
     [state.vehicles],
   );
-  const safeStations = useMemo(
-    () => ensureArray<(typeof state.stations)[number]>(state.stations),
-    [state.stations],
-  );
+  const safeStations = useMemo(() => ensureArray<Station>(state.stations), [state.stations]);
   const safeRealtimeEvents = useMemo(
     () => ensureArray<(typeof realtimeEvents)[number]>(realtimeEvents),
     [realtimeEvents],
@@ -737,7 +735,7 @@ export function AppShell({
       })();
     }, 60_000);
     return () => window.clearInterval(interval);
-  }, [token, loadDashboard, refreshSession]);
+  }, [token, loadDashboard, refreshSession, handleSignOut]);
 
   // ── Realtime event handler ────────────────────────────────────────────────
   useEffect(() => {
@@ -1260,11 +1258,11 @@ export function AppShell({
   }
 
   // ── Station management ────────────────────────────────────────────────────
-  function updateStationField(
+  const updateStationField = useCallback((
     stationID: string,
     field: string,
     value: unknown,
-  ) {
+  ) => {
     setStore((c) => ({
       state: {
         ...c.state,
@@ -1273,7 +1271,7 @@ export function AppShell({
         ),
       },
     }));
-  }
+  }, [setStore]);
 
   async function handleCreateStation() {
     if (!token) return;

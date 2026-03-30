@@ -153,7 +153,7 @@ export function LocationPicker({ latitude, longitude, onLocationSelect, classNam
       if (Date.now() > suppressAutoCenterUntilRef.current) {
         map.setCenter([longitude, latitude]);
       }
-    } catch (err) {
+    } catch {
       /* ignore */
     }
   }, [latitude, longitude]);

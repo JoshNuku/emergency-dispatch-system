@@ -11,7 +11,7 @@ describe("shouldInitMap guard", () => {
   });
 
   it("returns false when map already exists", () => {
-    expect(shouldInitMap("token", document.createElement("div"), {} as any)).toBe(false);
+    expect(shouldInitMap("token", document.createElement("div"), {} as unknown)).toBe(false);
   });
 
   it("returns true when token and container are present and no existing map", () => {

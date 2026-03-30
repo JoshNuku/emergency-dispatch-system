@@ -1,7 +1,9 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import type mapboxgl from "mapbox-gl";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 type MapPoint = {
   id: string;
@@ -109,12 +111,12 @@ export default function OperationsMap({ points, className, onMapClick, focusPoin
     onMapClickRef.current = onMapClick;
   }, [onMapClick]);
 
-  const clearDomMarkers = () => {
+  const clearDomMarkers = useCallback(() => {
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
-  };
+  }, []);
 
-  const createDomMarkersFromFeatures = (features: any[], missingIconNames?: Set<string>) => {
+  const createDomMarkersFromFeatures = useCallback((features: any[], missingIconNames?: Set<string>) => {
     const map = mapRef.current;
     if (!map || !mapboxRef.current) return;
     clearDomMarkers();
@@ -168,7 +170,7 @@ export default function OperationsMap({ points, className, onMapClick, focusPoin
         /* ignore individual marker failures */
       }
     }
-  };
+  }, [clearDomMarkers]);
 
   useEffect(() => {
     const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -388,7 +390,7 @@ export default function OperationsMap({ points, className, onMapClick, focusPoin
     return () => {
       clearDomMarkers();
     };
-  }, [points]);
+  }, [points, clearDomMarkers, createDomMarkersFromFeatures]);
 
   useEffect(() => {
     const map = mapRef.current;

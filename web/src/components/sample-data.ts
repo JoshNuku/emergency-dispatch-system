@@ -58,12 +58,18 @@ export const activeIncidents = [
   },
 ];
 
+const authEndpoint = process.env.NEXT_PUBLIC_AUTH_API_URL ?? "configured via env";
+const incidentEndpoint = process.env.NEXT_PUBLIC_INCIDENT_API_URL ?? "configured via env";
+const dispatchEndpoint = process.env.NEXT_PUBLIC_DISPATCH_API_URL ?? "configured via env";
+const analyticsEndpoint = process.env.NEXT_PUBLIC_ANALYTICS_API_URL ?? "configured via env";
+const realtimeEndpoint = process.env.NEXT_PUBLIC_WS_URL ?? "configured via env";
+
 export const serviceStatus = [
-  { name: "Auth Service", endpoint: "localhost:8081", status: "healthy" },
-  { name: "Incident Service", endpoint: "localhost:8082", status: "healthy" },
-  { name: "Dispatch Service", endpoint: "localhost:8083", status: "healthy" },
-  { name: "Analytics Service", endpoint: "localhost:8084", status: "healthy" },
-  { name: "Realtime Gateway", endpoint: "localhost:8085", status: "healthy" },
+  { name: "Auth Service", endpoint: authEndpoint, status: "healthy" },
+  { name: "Incident Service", endpoint: incidentEndpoint, status: "healthy" },
+  { name: "Dispatch Service", endpoint: dispatchEndpoint, status: "healthy" },
+  { name: "Analytics Service", endpoint: analyticsEndpoint, status: "healthy" },
+  { name: "Realtime Gateway", endpoint: realtimeEndpoint, status: "healthy" },
 ];
 
 export const queueHealth = [

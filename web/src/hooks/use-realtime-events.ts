@@ -19,7 +19,10 @@ function parsePayload(payload: unknown) {
 }
 
 function normalizeWebSocketUrl(token: string) {
-  const baseUrl = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8085";
+  const baseUrl = process.env.NEXT_PUBLIC_WS_URL;
+  if (!baseUrl || !baseUrl.trim()) {
+    throw new Error("Missing required environment variable: NEXT_PUBLIC_WS_URL");
+  }
   const url = new URL(baseUrl.includes("/ws") ? baseUrl : `${baseUrl}/ws`);
   url.searchParams.set("token", token);
   return url.toString();
@@ -43,7 +46,7 @@ export function useRealtimeEvents(token: string | null) {
       if (!mounted) return;
       try {
         socket = new WebSocket(normalizeWebSocketUrl(token));
-      } catch (e) {
+      } catch {
         setIsConnected(false);
         scheduleReconnect();
         return;
@@ -105,7 +108,7 @@ export function useRealtimeEvents(token: string | null) {
       if (reconnectTimer) clearTimeout(reconnectTimer);
       try {
         if (socket) socket.close();
-      } catch (e) {}
+      } catch {}
     };
   }, [token]);
 
