@@ -185,7 +185,9 @@ func targetIncidentStatusFromVehicle(vehicleStatus string, currentIncidentStatus
 	case "at_scene":
 		return models.StatusInProgress, true
 	case "returning", "available":
-		return models.StatusResolved, true
+		// Returning/available means the unit lifecycle changed, not that incident
+		// outcome is complete. Incident resolution is an explicit workflow action.
+		return "", false
 	default:
 		return "", false
 	}
