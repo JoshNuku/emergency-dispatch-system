@@ -6,6 +6,8 @@ import type { RealtimeEvent } from "@/types/frontend";
 
 export type { RealtimeEvent } from "@/types/frontend";
 
+let hasWarnedMissingWsEnv = false;
+
 function parsePayload(payload: unknown) {
   if (typeof payload !== "string") {
     return payload;
@@ -20,9 +22,16 @@ function parsePayload(payload: unknown) {
 
 function normalizeWebSocketUrl(token: string) {
   const envUrl = process.env.NEXT_PUBLIC_WS_URL?.trim();
-  const baseUrl = envUrl || "wss://eds-realtime-gateway.onrender.com/ws";
-  if (!envUrl && typeof window !== "undefined") {
-    console.warn("Missing NEXT_PUBLIC_WS_URL; falling back to wss://eds-realtime-gateway.onrender.com/ws");
+  const isLocalHost =
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+  const fallbackUrl = isLocalHost
+    ? "ws://localhost:8085/ws"
+    : "wss://eds-realtime-gateway.onrender.com/ws";
+  const baseUrl = envUrl || fallbackUrl;
+  if (!envUrl && typeof window !== "undefined" && !hasWarnedMissingWsEnv) {
+    hasWarnedMissingWsEnv = true;
+    console.warn(`Missing NEXT_PUBLIC_WS_URL; falling back to ${fallbackUrl}`);
   }
   const url = new URL(baseUrl.includes("/ws") ? baseUrl : `${baseUrl}/ws`);
   url.searchParams.set("token", token);

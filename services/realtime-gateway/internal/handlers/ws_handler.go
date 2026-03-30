@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -17,7 +18,34 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
 		origin := r.Header.Get("Origin")
-		return origin == "http://localhost:3000" || origin == ""
+		if origin == "" {
+			return true
+		}
+
+		allowed := []string{"http://localhost:3000"}
+		originEnv := strings.TrimSpace(os.Getenv("CORS_ALLOW_ORIGINS"))
+		if originEnv != "" {
+			parts := strings.Split(originEnv, ",")
+			parsed := make([]string, 0, len(parts))
+			for _, p := range parts {
+				t := strings.TrimSpace(p)
+				if t != "" {
+					parsed = append(parsed, t)
+				}
+			}
+			if len(parsed) > 0 {
+				allowed = parsed
+			}
+		}
+
+		for _, a := range allowed {
+			if a == "*" || strings.EqualFold(a, origin) {
+				return true
+			}
+		}
+
+		// Helpful for local dev when running on alternate localhost ports.
+		return strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:")
 	},
 }
 

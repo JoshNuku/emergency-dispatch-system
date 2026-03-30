@@ -139,13 +139,42 @@ export default function OperationsMap({ points, className, onMapClick, focusPoin
         container.style.display = "flex";
         container.style.alignItems = "center";
 
-        const dot = document.createElement("div");
-        dot.style.width = "12px";
-        dot.style.height = "12px";
-        dot.style.borderRadius = "50%";
-        dot.style.boxShadow = "0 0 0 2px #fff";
-        dot.style.background = TONE_COLOR[tone] || "#14ae5c";
-        container.appendChild(dot);
+        const iconWrap = document.createElement("div");
+        iconWrap.style.width = "28px";
+        iconWrap.style.height = "28px";
+        iconWrap.style.display = "flex";
+        iconWrap.style.alignItems = "center";
+        iconWrap.style.justifyContent = "center";
+        iconWrap.style.borderRadius = "9999px";
+        iconWrap.style.background = "rgba(15, 23, 42, 0.92)";
+        iconWrap.style.boxShadow = "0 0 0 2px #fff";
+
+        const fallbackDot = document.createElement("div");
+        fallbackDot.style.width = "12px";
+        fallbackDot.style.height = "12px";
+        fallbackDot.style.borderRadius = "50%";
+        fallbackDot.style.background = TONE_COLOR[tone] || "#14ae5c";
+
+        const svgMarkup = iconName && VEHICLE_ICONS[iconName]
+          ? VEHICLE_ICONS[iconName]
+          : tone === "station"
+            ? VEHICLE_ICONS["icon-station"]
+            : tone === "incident"
+              ? VEHICLE_ICONS["icon-incident"]
+              : VEHICLE_ICONS["icon-vehicle"];
+
+        if (svgMarkup) {
+          const img = document.createElement("img");
+          img.src = `data:image/svg+xml;utf8,${encodeURIComponent(svgMarkup)}`;
+          img.width = 20;
+          img.height = 20;
+          img.style.display = "block";
+          iconWrap.appendChild(img);
+        } else {
+          iconWrap.appendChild(fallbackDot);
+        }
+
+        container.appendChild(iconWrap);
 
         if ((props.tone === "station" || props.tone === "incident") && props.label) {
           const lbl = document.createElement("div");
