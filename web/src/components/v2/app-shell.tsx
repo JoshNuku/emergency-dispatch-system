@@ -364,6 +364,22 @@ export function AppShell({
   const [myProfilePassword, setMyProfilePassword] = useState("");
   const [myProfilePasswordConfirm, setMyProfilePasswordConfirm] = useState("");
 
+  // Station field update callback
+  const updateStationField = useCallback((
+    stationID: string,
+    field: string,
+    value: unknown,
+  ) => {
+    setStore((c) => ({
+      state: {
+        ...c.state,
+        stations: c.state.stations.map((s) =>
+          s.id === stationID ? { ...s, [field]: value } : s,
+        ),
+      },
+    }));
+  }, [setStore]);
+
   // Effect to grab map coordinates when picking
   useEffect(() => {
     if (isPickingLocation && lastMapSelectedCoords) {
@@ -716,6 +732,16 @@ export function AppShell({
     });
   }, [safeVehicles, selectedVehicleID, setStore]);
 
+  // Sign out handler
+  const handleSignOut = useCallback(() => {
+    dashboardStore.reset();
+    window.localStorage.removeItem(ACCESS_TOKEN_KEY);
+    window.localStorage.removeItem(REFRESH_TOKEN_KEY);
+    window.localStorage.removeItem(EXPIRES_AT_KEY);
+    router.replace("/");
+  }, [router]);
+
+
   // ── Token refresh interval ────────────────────────────────────────────────
   useEffect(() => {
     if (!token) return;
@@ -958,15 +984,6 @@ export function AppShell({
       })();
     });
   }
-
-  const handleSignOut = useCallback(() => {
-    dashboardStore.reset();
-    window.localStorage.removeItem(ACCESS_TOKEN_KEY);
-    window.localStorage.removeItem(REFRESH_TOKEN_KEY);
-    window.localStorage.removeItem(EXPIRES_AT_KEY);
-    router.replace("/");
-  }, [router]);
-
   // ── Incident actions ──────────────────────────────────────────────────────
   function handleIncidentFieldChange(field: string, value: unknown) {
     setStore((c) => ({ incidentForm: { ...c.incidentForm, [field]: value } }));
@@ -1258,21 +1275,6 @@ export function AppShell({
   }
 
   // ── Station management ────────────────────────────────────────────────────
-  const updateStationField = useCallback((
-    stationID: string,
-    field: string,
-    value: unknown,
-  ) => {
-    setStore((c) => ({
-      state: {
-        ...c.state,
-        stations: c.state.stations.map((s) =>
-          s.id === stationID ? { ...s, [field]: value } : s,
-        ),
-      },
-    }));
-  }, [setStore]);
-
   async function handleCreateStation() {
     if (!token) return;
     if (!isSystemAdmin) {
