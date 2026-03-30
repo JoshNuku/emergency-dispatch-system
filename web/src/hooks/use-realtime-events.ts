@@ -19,9 +19,10 @@ function parsePayload(payload: unknown) {
 }
 
 function normalizeWebSocketUrl(token: string) {
-  const baseUrl = process.env.NEXT_PUBLIC_WS_URL;
-  if (!baseUrl || !baseUrl.trim()) {
-    throw new Error("Missing required environment variable: NEXT_PUBLIC_WS_URL");
+  const envUrl = process.env.NEXT_PUBLIC_WS_URL?.trim();
+  const baseUrl = envUrl || "wss://eds-realtime-gateway.onrender.com/ws";
+  if (!envUrl && typeof window !== "undefined") {
+    console.warn("Missing NEXT_PUBLIC_WS_URL; falling back to wss://eds-realtime-gateway.onrender.com/ws");
   }
   const url = new URL(baseUrl.includes("/ws") ? baseUrl : `${baseUrl}/ws`);
   url.searchParams.set("token", token);

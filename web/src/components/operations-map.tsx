@@ -100,6 +100,7 @@ function numberIsFinite(v: any) {
 }
 
 export default function OperationsMap({ points, className, onMapClick, focusPoint }: OperationsMapProps) {
+  const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN?.trim();
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const mapboxRef = useRef<typeof mapboxgl | null>(null);
@@ -173,7 +174,7 @@ export default function OperationsMap({ points, className, onMapClick, focusPoin
   }, [clearDomMarkers]);
 
   useEffect(() => {
-    const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+    const token = mapboxToken;
     if (!token || !mapContainerRef.current || mapRef.current) return;
 
     let isMounted = true;
@@ -412,7 +413,7 @@ export default function OperationsMap({ points, className, onMapClick, focusPoin
     }
   }, [focusPoint]);
 
-  if (!process.env.NEXT_PUBLIC_MAPBOX_TOKEN) {
+  if (!mapboxToken) {
     return (
       <div className={className}>
         <div className="flex h-full min-h-80 flex-col items-center justify-center gap-3 rounded-xl bg-[#1a1a2e] px-6 text-center">

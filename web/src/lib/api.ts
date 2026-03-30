@@ -28,18 +28,42 @@ export type {
   Vehicle,
 } from "@/types/frontend";
 
-function requiredEnv(name: string): string {
-  const value = process.env[name as keyof NodeJS.ProcessEnv];
-  if (!value || !value.trim()) {
-    throw new Error(`Missing required environment variable: ${name}`);
+const warnedMissingEnv = new Set<string>();
+
+function resolveEnvUrl(name: string, value: string | undefined, fallback: string): string {
+  const normalized = value?.trim();
+  if (normalized) {
+    return normalized.replace(/\/$/, "");
   }
-  return value.trim();
+
+  if (!warnedMissingEnv.has(name)) {
+    warnedMissingEnv.add(name);
+    console.warn(`Missing ${name}; falling back to ${fallback}`);
+  }
+
+  return fallback;
 }
 
-const authApiUrl = requiredEnv("NEXT_PUBLIC_AUTH_API_URL");
-const incidentApiUrl = requiredEnv("NEXT_PUBLIC_INCIDENT_API_URL");
-const dispatchApiUrl = requiredEnv("NEXT_PUBLIC_DISPATCH_API_URL");
-const analyticsApiUrl = requiredEnv("NEXT_PUBLIC_ANALYTICS_API_URL");
+const authApiUrl = resolveEnvUrl(
+  "NEXT_PUBLIC_AUTH_API_URL",
+  process.env.NEXT_PUBLIC_AUTH_API_URL,
+  "https://eds-auth.onrender.com",
+);
+const incidentApiUrl = resolveEnvUrl(
+  "NEXT_PUBLIC_INCIDENT_API_URL",
+  process.env.NEXT_PUBLIC_INCIDENT_API_URL,
+  "https://eds-incident.onrender.com",
+);
+const dispatchApiUrl = resolveEnvUrl(
+  "NEXT_PUBLIC_DISPATCH_API_URL",
+  process.env.NEXT_PUBLIC_DISPATCH_API_URL,
+  "https://eds-dispatch.onrender.com",
+);
+const analyticsApiUrl = resolveEnvUrl(
+  "NEXT_PUBLIC_ANALYTICS_API_URL",
+  process.env.NEXT_PUBLIC_ANALYTICS_API_URL,
+  "https://eds-analytics.onrender.com",
+);
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {

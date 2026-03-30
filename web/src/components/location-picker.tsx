@@ -13,6 +13,7 @@ type LocationPickerProps = {
 const defaultCenter: [number, number] = [-0.187, 5.651];
 
 export function LocationPicker({ latitude, longitude, onLocationSelect, className }: LocationPickerProps) {
+  const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN?.trim();
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const mapboxRef = useRef<typeof mapboxgl | null>(null);
@@ -32,7 +33,7 @@ export function LocationPicker({ latitude, longitude, onLocationSelect, classNam
   }, [onLocationSelect]);
 
   useEffect(() => {
-    const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+    const token = mapboxToken;
     if (!token || !mapContainerRef.current || mapRef.current) {
       return;
     }
@@ -158,7 +159,7 @@ export function LocationPicker({ latitude, longitude, onLocationSelect, classNam
     }
   }, [latitude, longitude]);
 
-  if (!process.env.NEXT_PUBLIC_MAPBOX_TOKEN) {
+  if (!mapboxToken) {
     return (
       <div className={className}>
         <div className="flex h-full min-h-44 flex-col items-center justify-center gap-2 rounded-xl bg-[#1a1a2e] px-4 text-center">
