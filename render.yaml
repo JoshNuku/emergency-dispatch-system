@@ -74,10 +74,7 @@ services:
       - key: RABBITMQ_URL
         sync: false
       - key: DISPATCH_SERVICE_URL
-        fromService:
-          type: web
-          name: eds-dispatch
-          property: url
+        sync: false
 
   - type: web
     name: eds-analytics
@@ -104,15 +101,9 @@ services:
       - key: RABBITMQ_URL
         sync: false
       - key: DISPATCH_SERVICE_URL
-        fromService:
-          type: web
-          name: eds-dispatch
-          property: url
+        sync: false
       - key: INCIDENT_SERVICE_URL
-        fromService:
-          type: web
-          name: eds-incident
-          property: url
+        sync: false
       - key: CORS_ALLOW_ORIGINS
         sync: false
 
@@ -142,25 +133,13 @@ services:
       - key: NODE_ENV
         value: production
       - key: NEXT_PUBLIC_AUTH_API_URL
-        fromService:
-          type: web
-          name: eds-auth
-          property: url
+        sync: false
       - key: NEXT_PUBLIC_INCIDENT_API_URL
-        fromService:
-          type: web
-          name: eds-incident
-          property: url
+        sync: false
       - key: NEXT_PUBLIC_DISPATCH_API_URL
-        fromService:
-          type: web
-          name: eds-dispatch
-          property: url
+        sync: false
       - key: NEXT_PUBLIC_ANALYTICS_API_URL
-        fromService:
-          type: web
-          name: eds-analytics
-          property: url
+        sync: false
       - key: NEXT_PUBLIC_WS_URL
         sync: false
       - key: NEXT_PUBLIC_MAPBOX_TOKEN
