@@ -18,7 +18,6 @@ import (
 	"emergency-dispatch/services/analytics/internal/mq"
 	"emergency-dispatch/services/analytics/internal/repository"
 	"emergency-dispatch/services/analytics/internal/routes"
-	"emergency-dispatch/services/analytics/internal/seed"
 )
 
 func main() {
@@ -34,9 +33,6 @@ func main() {
 	}
 
 	db.AutoMigrate(&models.IncidentMetric{}, &models.HospitalCapacityLog{})
-	if err := seed.Run(db); err != nil {
-		log.Fatalf("Failed to seed analytics demo data: %v", err)
-	}
 
 	repo := repository.NewAnalyticsRepository(db)
 	handler := handlers.NewAnalyticsHandler(repo, cfg.DispatchServiceURL)
@@ -57,14 +53,7 @@ func main() {
 		}
 	}
 
-	// Backfill existing incidents from incident service
-	if cfg.IncidentServiceURL != "" {
-		go func() {
-			if err := seed.BackfillIncidents(cfg.IncidentServiceURL, repo); err != nil {
-				log.Printf("Backfill error: %v", err)
-			}
-		}()
-	}
+	// Startup seeding/backfill is intentionally disabled.
 
 	r := gin.Default()
 	originEnv := strings.TrimSpace(os.Getenv("CORS_ALLOW_ORIGINS"))

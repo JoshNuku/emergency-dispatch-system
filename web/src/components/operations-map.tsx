@@ -3,7 +3,7 @@
 "use client";
 
 import type mapboxgl from "mapbox-gl";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type MapPoint = {
   id: string;
@@ -13,6 +13,7 @@ type MapPoint = {
   longitude: number;
   tone: "incident" | "vehicle" | "station";
   vehicle_type?: string;
+  station_type?: string;
 };
 
 type OperationsMapProps = {
@@ -33,66 +34,49 @@ function escapeHtml(value: string) {
     .replaceAll("'", "&#39;");
 }
 
-const VEHICLE_ICONS: Record<string, string> = {
-  "icon-ambulance": `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="48" height="48"><rect rx="2" ry="2" x="2" y="6" width="16" height="10" fill="#ffffff" stroke="#e11d48" stroke-width="1.5"/><rect x="6" y="9" width="6" height="6" fill="#e11d48" rx="0" /><rect x="18" y="9" width="4" height="6" fill="#111827" rx="1" /><circle cx="7" cy="17.5" r="1.5" fill="#111827" /><circle cx="13" cy="17.5" r="1.5" fill="#111827" /></svg>`,
-  "icon-fire_truck": `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="48" height="48"><rect x="2" y="7" width="14" height="7" rx="1.5" fill="#ef4444" /><rect x="16" y="9" width="6" height="5" rx="1" fill="#111827" /><circle cx="6" cy="16.5" r="1.5" fill="#111827" /><circle cx="18" cy="16.5" r="1.5" fill="#111827" /><rect x="3" y="8.5" width="6" height="2" rx="0.5" fill="#fff" /></svg>`,
-  "icon-police_car": `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="48" height="48"><rect x="2" y="8" width="16" height="6" rx="1.5" fill="#0ea5e9" /><rect x="18" y="9" width="4" height="4" rx="1" fill="#111827" /><circle cx="6" cy="15.5" r="1.5" fill="#111827" /><circle cx="14" cy="15.5" r="1.5" fill="#111827" /></svg>`,
-  "icon-vehicle": `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="48" height="48"><rect x="2" y="8" width="16" height="6" rx="1.5" fill="#14ae5c" /><rect x="18" y="9" width="4" height="4" rx="1" fill="#111827" /><circle cx="6" cy="15.5" r="1.5" fill="#111827" /><circle cx="14" cy="15.5" r="1.5" fill="#111827" /></svg>`,
-  "icon-station": `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="48" height="48"><path d="M3 20h18v1H3v-1z" fill="#fff"/><path d="M5 11v7h3v-4h8v4h3v-7L12 4 5 11z" fill="#2563eb"/><circle cx="9" cy="14" r="1" fill="#fff"/><circle cx="15" cy="14" r="1" fill="#fff"/></svg>`,
-  "icon-incident": `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="48" height="48"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z" fill="#f24822"/></svg>`,
-};
-
 const TONE_COLOR: Record<string, string> = {
   incident: "#f24822",
   vehicle: "#14ae5c",
   station: "#2563eb",
 };
 
-function addSvgImageToMap(map: mapboxgl.Map, name: string, svg: string) {
-  return new Promise<string | null>((resolve) => {
-    if (!map || !map.getStyle()) {
-      resolve(null);
-      return;
-    }
-    if (map.hasImage(name)) {
-      resolve(name);
-      return;
-    }
-    try {
-      const img = new Image();
-      const svgBlob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
-      const url = URL.createObjectURL(svgBlob);
-      img.onload = () => {
-        try {
-          const canvas = document.createElement("canvas");
-          canvas.width = 48;
-          canvas.height = 48;
-          const ctx = canvas.getContext("2d");
-          if (!ctx) {
-            URL.revokeObjectURL(url);
-            resolve(null);
-            return;
-          }
-          ctx.clearRect(0, 0, 48, 48);
-          ctx.drawImage(img, 0, 0, 48, 48);
-          const imageData = ctx.getImageData(0, 0, 48, 48);
-          if (!map.hasImage(name)) map.addImage(name, imageData);
-          URL.revokeObjectURL(url);
-          resolve(name);
-        } catch (e) {
-          URL.revokeObjectURL(url);
-          resolve(null);
-        }
-      };
-      img.onerror = () => {
-        URL.revokeObjectURL(url);
-        resolve(null);
-      };
-      img.src = url;
-    } catch (e) {
-      resolve(null);
-    }
-  });
+const TONE_EMOJI: Record<string, string> = {
+  incident: "🚨",
+  vehicle: "🚑",
+  station: "🏥",
+};
+
+const VEHICLE_EMOJI: Record<string, string> = {
+  ambulance: "🚑",
+  fire_truck: "🚒",
+  police_car: "🚓",
+  bike: "🏍️",
+  motorbike: "🏍️",
+  motorcycle: "🏍️",
+  truck: "🚚",
+  vehicle: "🚗",
+};
+
+function stationEmojiFromType(rawType: string | undefined): string {
+  const value = String(rawType || "").toLowerCase();
+  if (value.includes("police")) return "👮";
+  if (value.includes("fire")) return "🧯";
+  if (value.includes("hospital") || value.includes("medical") || value.includes("ambulance")) return "🏥";
+  return "🏢";
+}
+
+function stationLabelFromType(rawType: string | undefined): string {
+  const value = String(rawType || "").toLowerCase();
+  if (value.includes("police")) return "Police Station";
+  if (value.includes("fire")) return "Fire Station";
+  if (value.includes("hospital") || value.includes("medical") || value.includes("ambulance")) return "Hospital";
+  return "Station";
+}
+
+function vehicleLabelFromType(rawType: string | undefined): string {
+  const value = String(rawType || "").toLowerCase().trim();
+  if (!value) return "Vehicle";
+  return value.replaceAll("_", " ").replace(/\b\w/g, (ch) => ch.toUpperCase());
 }
 
 function numberIsFinite(v: any) {
@@ -106,6 +90,18 @@ export default function OperationsMap({ points, className, onMapClick, focusPoin
   const mapboxRef = useRef<typeof mapboxgl | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const [mapReadyVersion, setMapReadyVersion] = useState(0);
+
+  const counts = useMemo(() => {
+    const tally = { station: 0, incident: 0, vehicle: 0 };
+    for (const point of points || []) {
+      const tone = String(point.tone || "").toLowerCase();
+      if (tone === "station") tally.station += 1;
+      else if (tone === "incident") tally.incident += 1;
+      else if (tone === "vehicle") tally.vehicle += 1;
+    }
+    return tally;
+  }, [points]);
 
   const onMapClickRef = useRef(onMapClick);
   useEffect(() => {
@@ -117,84 +113,95 @@ export default function OperationsMap({ points, className, onMapClick, focusPoin
     markersRef.current = [];
   }, []);
 
-  const createDomMarkersFromFeatures = useCallback((features: any[], missingIconNames?: Set<string>) => {
+  const createDomMarkersFromFeatures = useCallback((features: any[]) => {
     const map = mapRef.current;
     if (!map || !mapboxRef.current) return;
     clearDomMarkers();
     for (const f of features) {
       try {
         const props = f.properties || {};
-        const iconName = props.icon as string | undefined;
-        // Only create DOM fallback markers for features that need them
-        // If an icon is present and loaded, skip. If the icon is missing or there is no icon
-        // we want a DOM fallback for stations, vehicles and incidents (labels).
-        if (iconName && missingIconNames && !missingIconNames.has(iconName)) continue;
-        if (!iconName && props.tone !== "station" && props.tone !== "vehicle" && props.tone !== "incident") continue;
 
         const coords = f.geometry.coordinates;
-        const tone = String(props.tone || "vehicle");
+        const tone = String(props.tone || "vehicle").toLowerCase();
+        const vehicleType = String(props.vehicle_type || "").toLowerCase();
+        const stationType = String(props.station_type || "").toLowerCase();
 
         const container = document.createElement("div");
         container.className = "dom-marker flex items-center";
         container.style.display = "flex";
         container.style.alignItems = "center";
+        container.style.flexDirection = "column";
+        container.style.gap = "2px";
 
         const iconWrap = document.createElement("div");
-        iconWrap.style.width = "28px";
-        iconWrap.style.height = "28px";
+        iconWrap.style.width = "auto";
+        iconWrap.style.height = "auto";
         iconWrap.style.display = "flex";
         iconWrap.style.alignItems = "center";
         iconWrap.style.justifyContent = "center";
-        iconWrap.style.borderRadius = "9999px";
-        iconWrap.style.background = "rgba(15, 23, 42, 0.92)";
-        iconWrap.style.boxShadow = "0 0 0 2px #fff";
+        iconWrap.style.background = "transparent";
+        iconWrap.style.border = "0";
+        iconWrap.style.boxShadow = "none";
 
-        const fallbackDot = document.createElement("div");
-        fallbackDot.style.width = "12px";
-        fallbackDot.style.height = "12px";
-        fallbackDot.style.borderRadius = "50%";
-        fallbackDot.style.background = TONE_COLOR[tone] || "#14ae5c";
+        const emojiFallback =
+          tone === "vehicle"
+            ? (VEHICLE_EMOJI[vehicleType] || TONE_EMOJI.vehicle)
+            : tone === "station"
+              ? stationEmojiFromType(stationType || String(props.detail || props.label || ""))
+            : TONE_EMOJI[tone] || "📍";
 
-        const svgMarkup = iconName && VEHICLE_ICONS[iconName]
-          ? VEHICLE_ICONS[iconName]
-          : tone === "station"
-            ? VEHICLE_ICONS["icon-station"]
-            : tone === "incident"
-              ? VEHICLE_ICONS["icon-incident"]
-              : VEHICLE_ICONS["icon-vehicle"];
-
-        if (svgMarkup) {
-          const img = document.createElement("img");
-          img.src = `data:image/svg+xml;utf8,${encodeURIComponent(svgMarkup)}`;
-          img.width = 20;
-          img.height = 20;
-          img.style.display = "block";
-          iconWrap.appendChild(img);
-        } else {
-          iconWrap.appendChild(fallbackDot);
-        }
+        const emoji = document.createElement("span");
+        emoji.textContent = emojiFallback;
+        emoji.style.fontSize = "24px";
+        emoji.style.lineHeight = "1";
+        emoji.style.filter = "drop-shadow(0 2px 2px rgba(0, 0, 0, 0.38))";
+        iconWrap.appendChild(emoji);
 
         container.appendChild(iconWrap);
 
-        if ((props.tone === "station" || props.tone === "incident") && props.label) {
-          const lbl = document.createElement("div");
-          lbl.style.marginLeft = "8px";
-          lbl.style.color = "#e6eef8";
-          lbl.style.fontSize = "12px";
-          lbl.style.fontWeight = "600";
-          lbl.textContent = String(props.label || "");
-          container.appendChild(lbl);
-          if (props.detail) {
-            const sub = document.createElement("div");
-            sub.style.marginLeft = "8px";
-            sub.style.color = "#9aa4b2";
-            sub.style.fontSize = "11px";
-            sub.textContent = String(props.detail || "");
-            container.appendChild(sub);
-          }
-        }
+        const markerLabel = document.createElement("span");
+        markerLabel.style.fontSize = "10px";
+        markerLabel.style.fontWeight = "600";
+        markerLabel.style.color = "#ffffff";
+        markerLabel.style.background = "rgba(15, 23, 42, 0.72)";
+        markerLabel.style.border = "1px solid rgba(148, 163, 184, 0.34)";
+        markerLabel.style.borderRadius = "9999px";
+        markerLabel.style.padding = "1px 6px";
+        markerLabel.style.whiteSpace = "nowrap";
+        markerLabel.style.textShadow = "0 1px 1px rgba(0,0,0,0.45)";
+        markerLabel.textContent =
+          tone === "vehicle"
+            ? vehicleLabelFromType(vehicleType)
+            : tone === "incident"
+              ? "Incident"
+              : stationLabelFromType(stationType || String(props.detail || props.label || ""));
+        container.appendChild(markerLabel);
 
-        const marker = new (mapboxRef.current as any).Marker({ element: container }).setLngLat([coords[0], coords[1]]).addTo(map);
+        // Keep markers visually minimal; full details are shown in popup on click.
+
+        const fallbackDetail =
+          tone === "vehicle"
+            ? vehicleLabelFromType(vehicleType)
+            : tone === "incident"
+              ? "Incident"
+              : "Station";
+        const popupHtml = `
+          <div style="padding:6px 4px;min-width:180px">
+            <div style="font-weight:700;font-size:13px;color:#ffffff">${escapeHtml(String(props.label || "Location"))}</div>
+            <div style="margin-top:4px;color:#e0e0e0;font-size:12px">${escapeHtml(String(props.detail || fallbackDetail))}</div>
+            <div style="margin-top:6px;font-size:11px;color:#d0d0d0">Lat ${Number(coords[1]).toFixed(5)}, Lng ${Number(coords[0]).toFixed(5)}</div>
+          </div>
+        `;
+        const popup = new (mapboxRef.current as any).Popup({ offset: 18 }).setHTML(popupHtml);
+
+        const marker = new (mapboxRef.current as any).Marker({ element: container, anchor: "bottom" })
+          .setLngLat([coords[0], coords[1]])
+          .setPopup(popup)
+          .addTo(map);
+
+        container.style.cursor = "pointer";
+        container.title = `${String(props.label || "Location")}: ${String(props.detail || fallbackDetail)}`;
+
         markersRef.current.push(marker);
       } catch (e) {
         /* ignore individual marker failures */
@@ -235,16 +242,22 @@ export default function OperationsMap({ points, className, onMapClick, focusPoin
 
         map = new mapboxgl.Map({
           container: mapContainerRef.current,
-          style: "mapbox://styles/mapbox/satellite-streets-v12",
+          style: "mapbox://styles/mapbox/streets-v12",
           center: defaultCenter,
           zoom: 13,
-          pitch: 24,
+          pitch: 0,
         });
         mapRef.current = map;
 
         map.on("load", () => {
           if (!isMounted) return;
           map?.resize();
+          setMapReadyVersion((v) => v + 1);
+        });
+
+        map.on("styledata", () => {
+          if (!isMounted) return;
+          setMapReadyVersion((v) => v + 1);
         });
 
         map.on("click", (e) => {
@@ -279,25 +292,14 @@ export default function OperationsMap({ points, className, onMapClick, focusPoin
         resizeObserverRef.current = null;
       }
     };
-  }, []);
+  }, [mapboxToken]);
 
   useEffect(() => {
     const map = mapRef.current;
     const mapboxglLocal = mapboxRef.current;
     if (!map || !mapboxglLocal) return;
 
-    const sourceId = "operations-points";
     const features = (points || []).map((p) => {
-      const vehicleIconName = p.vehicle_type ? `icon-${p.vehicle_type}` : "icon-vehicle";
-      const resolvedIcon =
-        p.tone === "vehicle"
-          ? (Object.prototype.hasOwnProperty.call(VEHICLE_ICONS, vehicleIconName) ? vehicleIconName : "icon-vehicle")
-          : p.tone === "station"
-          ? "icon-station"
-          : p.tone === "incident"
-          ? "icon-incident"
-          : "icon-vehicle";
-
       return {
         type: "Feature" as const,
         geometry: { type: "Point" as const, coordinates: [Number(p.longitude), Number(p.latitude)] },
@@ -305,8 +307,9 @@ export default function OperationsMap({ points, className, onMapClick, focusPoin
           id: p.id,
           label: String(p.label || ""),
           detail: String(p.detail || ""),
-          tone: p.tone,
-          icon: resolvedIcon,
+          tone: String(p.tone || "vehicle").toLowerCase(),
+          vehicle_type: String(p.vehicle_type || ""),
+          station_type: String(p.station_type || ""),
         },
       };
     }).filter((f) => {
@@ -314,92 +317,9 @@ export default function OperationsMap({ points, className, onMapClick, focusPoin
       return Array.isArray(c) && numberIsFinite(c[1]) && Math.abs(c[1]) <= 90 && Math.abs(c[0]) <= 180;
     });
 
-    const geojson = { type: "FeatureCollection" as const, features };
-
     const applyLayers = () => {
       try {
         if (!map.getStyle()) return;
-        const source = map.getSource(sourceId) as any;
-        if (source) {
-          source.setData(geojson);
-        } else {
-          map.addSource(sourceId, {
-            type: "geojson",
-            data: geojson
-          });
-
-          map.addLayer({
-            id: "unclustered-point",
-            type: "circle",
-            source: sourceId,
-            filter: ["==", ["get", "tone"], "incident"],
-            paint: {
-              "circle-color": TONE_COLOR.incident,
-              "circle-radius": 8,
-              "circle-stroke-width": 2,
-              "circle-stroke-color": "#fff"
-            }
-          });
-
-          if (!map.getLayer("vehicle-point")) {
-            map.addLayer({
-              id: "vehicle-point",
-              type: "circle",
-              source: sourceId,
-              filter: ["==", ["get", "tone"], "vehicle"],
-              paint: {
-                "circle-color": TONE_COLOR.vehicle,
-                "circle-radius": 7,
-                "circle-stroke-width": 2,
-                "circle-stroke-color": "#fff"
-              }
-            });
-          }
-
-          if (!map.getLayer("station-point")) {
-            map.addLayer({
-              id: "station-point",
-              type: "circle",
-              source: sourceId,
-              filter: ["==", ["get", "tone"], "station"],
-              paint: {
-                "circle-color": TONE_COLOR.station,
-                "circle-radius": 7,
-                "circle-stroke-width": 2,
-                "circle-stroke-color": "#fff"
-              }
-            });
-          }
-        }
-
-        const mapAny = map as any;
-        if (!mapAny.__opsMapClickHandlersBound) {
-          const popupForLayer = (layerId: string, fallbackTitle: string, minWidthPx: number) => {
-            map.on("click", layerId, (e) => {
-              const feats = map.queryRenderedFeatures(e.point, { layers: [layerId] });
-              if (!feats.length) return;
-              const f = feats[0];
-              const props = f.properties || {};
-              const coords = (f.geometry as any)?.coordinates as number[];
-              if (!coords) return;
-              const html = `
-                <div style="padding:6px 4px;min-width:${minWidthPx}px">
-                  <div style="font-weight:700;font-size:13px;color:#ffffff">${escapeHtml(String(props.label || fallbackTitle))}</div>
-                  <div style="margin-top:4px;color:#e0e0e0;font-size:12px">${escapeHtml(String(props.detail || ""))}</div>
-                  <div style="margin-top:6px;font-size:11px;color:#d0d0d0">Lat ${coords[1].toFixed(5)}, Lng ${coords[0].toFixed(5)}</div>
-                </div>
-              `;
-              new (mapboxglLocal as any).Popup({ offset: 18 }).setLngLat(coords).setHTML(html).addTo(map);
-            });
-            map.on("mouseenter", layerId, () => (map.getCanvas().style.cursor = "pointer"));
-            map.on("mouseleave", layerId, () => (map.getCanvas().style.cursor = ""));
-          };
-
-          popupForLayer("unclustered-point", "Incident", 200);
-          popupForLayer("vehicle-point", "Unit", 180);
-          popupForLayer("station-point", "Station", 180);
-          mapAny.__opsMapClickHandlersBound = true;
-        }
 
         createDomMarkersFromFeatures(features);
 
@@ -420,7 +340,7 @@ export default function OperationsMap({ points, className, onMapClick, focusPoin
     return () => {
       clearDomMarkers();
     };
-  }, [points, clearDomMarkers, createDomMarkersFromFeatures]);
+  }, [points, mapReadyVersion, clearDomMarkers, createDomMarkersFromFeatures]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -452,5 +372,20 @@ export default function OperationsMap({ points, className, onMapClick, focusPoin
     );
   }
 
-  return <div ref={mapContainerRef} id="map-container" className={className} />;
+  return (
+    <div className={`relative ${className ?? ""}`}>
+      <div ref={mapContainerRef} id="map-container" className="h-full w-full" />
+      <div className="pointer-events-none absolute left-3 top-3 z-10 flex flex-wrap items-center gap-2">
+        <div className="rounded-full bg-blue-600/90 px-3 py-1 text-[11px] font-semibold text-white shadow">
+          Stations {counts.station}
+        </div>
+        <div className="rounded-full bg-blue-600/90 px-3 py-1 text-[11px] font-semibold text-white shadow">
+          Incidents {counts.incident}
+        </div>
+        <div className="rounded-full bg-blue-600/90 px-3 py-1 text-[11px] font-semibold text-white shadow">
+          Vehicles {counts.vehicle}
+        </div>
+      </div>
+    </div>
+  );
 }

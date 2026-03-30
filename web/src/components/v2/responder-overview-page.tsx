@@ -16,6 +16,7 @@ type MapPoint = {
   longitude: number;
   tone: "incident" | "vehicle" | "station";
   vehicle_type?: string;
+  station_type?: string;
 };
 
 function isAdminRole(role?: string): boolean {
@@ -160,20 +161,24 @@ export function ResponderOverviewPage() {
 
   const scopedVehicles = useMemo(() => {
     if (isAdmin) return vehicles;
-    if (!profile) return [];
+    if (!profile) return vehicles;
     const byResponder = visibleResponders
       .map((r) => r.vehicle)
       .filter((v): v is NonNullable<typeof v> => v !== null);
     if (byResponder.length > 0) return byResponder;
 
     const profileName = (profile.name || "").trim().toLowerCase();
-    return vehicles.filter((v) => {
+    const byProfile = vehicles.filter((v) => {
       const idMatch = Boolean(v.driver_id && v.driver_id === profile.id);
       const nameMatch = Boolean(
         v.driver_name && profileName && v.driver_name.trim().toLowerCase() === profileName,
       );
       return idMatch || nameMatch;
     });
+
+    if (byProfile.length > 0) return byProfile;
+
+    return vehicles;
   }, [isAdmin, vehicles, profile, visibleResponders]);
 
   async function handleIncidentTransition(incidentID: string, nextStatus: string) {
@@ -202,17 +207,31 @@ export function ResponderOverviewPage() {
   const mapPoints = useMemo<MapPoint[]>(() => {
     const points: MapPoint[] = [];
 
-    // Add vehicles in scope (all for admins, self-scoped for responders)
-    scopedVehicles.forEach((vehicle) => {
-      if (typeof vehicle.latitude !== "number" || typeof vehicle.longitude !== "number") return;
+    const resolveVehicleCoords = (vehicle: Vehicle): { latitude: number; longitude: number } | null => {
+      const latitude = Number((vehicle as unknown as Record<string, unknown>).latitude);
+      const longitude = Number((vehicle as unknown as Record<string, unknown>).longitude);
+      const hasLiveCoords = Number.isFinite(latitude) && Number.isFinite(longitude) && !(latitude === 0 && longitude === 0);
+      if (hasLiveCoords) return { latitude, longitude };
+
+      const station = stations.find((s) => s.id === vehicle.station_id);
+      if (station && Number.isFinite(Number(station.latitude)) && Number.isFinite(Number(station.longitude))) {
+        return { latitude: Number(station.latitude), longitude: Number(station.longitude) };
+      }
+
+      return null;
+    };
+
+    // Draw stations first so vehicle markers remain visible on top when overlapping.
+    stations.forEach((s) => {
+      if (typeof s.latitude !== "number" || typeof s.longitude !== "number") return;
       points.push({
-        id: `vehicle-${vehicle.id}`,
-        label: vehicle.license_plate || vehicle.driver_name || titleCase(vehicle.vehicle_type),
-        detail: `${titleCase(vehicle.status)}${vehicle.driver_name ? ` | ${vehicle.driver_name}` : ""}`,
-        latitude: vehicle.latitude,
-        longitude: vehicle.longitude,
-        tone: "vehicle",
-        vehicle_type: vehicle.vehicle_type,
+        id: `station-${s.id}`,
+        label: s.name || titleCase(s.type || "station"),
+        detail: `${titleCase(s.type || "Station")} • ${s.is_available ? "Available" : "Unavailable"}`,
+        latitude: s.latitude,
+        longitude: s.longitude,
+        tone: "station",
+        station_type: s.type,
       });
     });
 
@@ -233,16 +252,20 @@ export function ResponderOverviewPage() {
       }
     });
 
-    // Add stations as blue points for responder map (show popup via OperationsMap layer)
-    stations.forEach((s) => {
-      if (typeof s.latitude !== "number" || typeof s.longitude !== "number") return;
+    // Add vehicles last so they render above stations.
+    scopedVehicles.forEach((vehicle) => {
+      const coords = resolveVehicleCoords(vehicle);
+      if (!coords) return;
       points.push({
-        id: `station-${s.id}`,
-        label: s.name || titleCase(s.type || "station"),
-        detail: `${titleCase(s.type || "Station")} • ${s.is_available ? "Available" : "Unavailable"}`,
-        latitude: s.latitude,
-        longitude: s.longitude,
-        tone: "station",
+        id: `vehicle-${vehicle.id}`,
+        label: vehicle.license_plate || vehicle.driver_name || titleCase(vehicle.vehicle_type || "vehicle"),
+        detail: [titleCase(vehicle.status || "available"), vehicle.driver_name || titleCase(vehicle.vehicle_type || "vehicle")]
+          .filter(Boolean)
+          .join(" | "),
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+        tone: "vehicle",
+        vehicle_type: vehicle.vehicle_type,
       });
     });
 

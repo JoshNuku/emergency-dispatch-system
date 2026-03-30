@@ -141,8 +141,20 @@ export function getIncidents(token: string) {
 }
 
 export function getVehicles(token: string) {
-  return request<Vehicle[]>(`${dispatchApiUrl}/vehicles`, {
+  return request<unknown>(`${dispatchApiUrl}/vehicles`, {
     headers: authHeader(token),
+  }).then((payload) => {
+    if (Array.isArray(payload)) return payload as Vehicle[];
+    if (payload && typeof payload === "object") {
+      const obj = payload as Record<string, unknown>;
+      if (Array.isArray(obj.vehicles)) return obj.vehicles as Vehicle[];
+      if (Array.isArray(obj.data)) return obj.data as Vehicle[];
+      if (obj.data && typeof obj.data === "object") {
+        const dataObj = obj.data as Record<string, unknown>;
+        if (Array.isArray(dataObj.vehicles)) return dataObj.vehicles as Vehicle[];
+      }
+    }
+    return [] as Vehicle[];
   });
 }
 

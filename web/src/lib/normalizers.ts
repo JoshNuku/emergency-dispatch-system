@@ -10,7 +10,12 @@ export function ensureArray<T>(value: unknown): T[] {
 }
 
 export function ensureNumber(value: unknown, fallback = 0): number {
-  return typeof value === "number" && isFinite(value) ? value : fallback;
+  if (typeof value === "number" && isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value.trim());
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return fallback;
 }
 
 export function ensureString(value: unknown, fallback = ""): string {
@@ -48,6 +53,16 @@ export function normalizeVehicle(raw: unknown): Vehicle | null {
   const record = raw as Record<string, unknown>;
   const id = ensureString(record.id);
   if (!id) return null;
+
+  const latitude = ensureNumber(
+    record.latitude ?? record.lat ?? record.current_latitude ?? record.currentLatitude,
+    0,
+  );
+  const longitude = ensureNumber(
+    record.longitude ?? record.lng ?? record.current_longitude ?? record.currentLongitude,
+    0,
+  );
+
   return {
     id,
     station_id: ensureString(record.station_id),
@@ -57,8 +72,8 @@ export function normalizeVehicle(raw: unknown): Vehicle | null {
     driver_id: ensureString(record.driver_id) || undefined,
     driver_name: ensureString(record.driver_name) || undefined,
     status: ensureString(record.status, "available"),
-    latitude: ensureNumber(record.latitude),
-    longitude: ensureNumber(record.longitude),
+    latitude,
+    longitude,
     incident_id: ensureString(record.incident_id) || undefined,
     created_at: ensureString(record.created_at) || undefined,
     updated_at: ensureString(record.updated_at) || undefined,
