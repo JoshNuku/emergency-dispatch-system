@@ -273,6 +273,18 @@ const NAV_ENTRIES: NavEntry[] = [
     icon: <ShieldIcon className="h-4.5 w-4.5" />,
     adminOnly: true,
   },
+  {
+    href: "/admin/stations",
+    label: "Stations",
+    icon: <BuildingIcon className="h-4.5 w-4.5" />,
+    adminOnly: true,
+  },
+  {
+    href: "/admin/users",
+    label: "Users",
+    icon: <UsersIcon className="h-4.5 w-4.5" />,
+    adminOnly: true,
+  },
 ];
 
 // Toggle / Switch component
@@ -1966,7 +1978,7 @@ export function AppShell({
                     <span className="hidden md:block">Fleet</span>
                   </button>
                 )}
-                {isDepartmentAdmin && (
+                {(isDepartmentAdmin || isSystemAdmin) && (
                   <button
                     type="button"
                     onClick={() => setStore({ openModal: "station-manage" })}

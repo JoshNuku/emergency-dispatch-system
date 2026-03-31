@@ -20,6 +20,30 @@ import (
 	"emergency-dispatch/services/analytics/internal/routes"
 )
 
+const openAPISpecPath = "../../docs/openapi.yaml"
+
+const swaggerUIHTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Emergency Dispatch API Docs</title>
+	<link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
+</head>
+<body>
+	<div id="swagger-ui"></div>
+	<script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+	<script>
+		window.ui = SwaggerUIBundle({
+			url: "/swagger/openapi.yaml",
+			dom_id: '#swagger-ui',
+			deepLinking: true,
+			defaultModelsExpandDepth: 1
+		});
+	</script>
+</body>
+</html>`
+
 func main() {
 	if err := godotenv.Load("../../.env"); err != nil {
 		log.Println("No .env file found, using environment variables")
@@ -89,6 +113,18 @@ func main() {
 
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok", "service": "analytics"})
+	})
+
+	r.GET("/swagger/openapi.yaml", func(c *gin.Context) {
+		if _, err := os.Stat(openAPISpecPath); err != nil {
+			c.JSON(404, gin.H{"error": "openapi spec not found", "path": openAPISpecPath})
+			return
+		}
+		c.File(openAPISpecPath)
+	})
+
+	r.GET("/swagger", func(c *gin.Context) {
+		c.Data(200, "text/html; charset=utf-8", []byte(swaggerUIHTML))
 	})
 
 	routes.SetupRoutes(r, handler)

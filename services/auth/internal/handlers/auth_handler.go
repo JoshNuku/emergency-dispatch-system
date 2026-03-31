@@ -205,9 +205,27 @@ func (h *AuthHandler) Profile(c *gin.Context) {
 	c.JSON(http.StatusOK, user)
 }
 
-// ListUsers returns all users (admin only)
+// ListUsers returns users visible to the caller.
+// system_admin → all users
+// hospital_admin / police_admin / fire_admin → only driver-role users in their station
 func (h *AuthHandler) ListUsers(c *gin.Context) {
-	users, err := h.repo.FindAll()
+	callerRole, _ := c.Get("role")
+	callerStationID, _ := c.Get("stationID")
+
+	if callerRole == models.RoleSystemAdmin {
+		users, err := h.repo.FindAll()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch users"})
+			return
+		}
+		c.JSON(http.StatusOK, users)
+		return
+	}
+
+	// Station admin: return only drivers within their station so the fleet
+	// driver dropdown is populated without exposing other admin accounts.
+	stationID, _ := callerStationID.(string)
+	users, err := h.repo.FindDrivers(stationID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch users"})
 		return

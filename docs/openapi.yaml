@@ -1,0 +1,1521 @@
+openapi: 3.0.3
+info:
+  title: Emergency Dispatch System Backend API
+  version: 1.0.0
+  description: |
+    Comprehensive OpenAPI specification for all backend services in the
+    Emergency Dispatch System.
+
+    Services covered:
+    - Auth Service
+    - Incident Service
+    - Dispatch Service
+    - Analytics Service
+    - Realtime Gateway (WebSocket handshake endpoint)
+
+servers:
+  - url: http://localhost:8081
+    description: Auth service (local)
+  - url: http://localhost:8082
+    description: Incident service (local)
+  - url: http://localhost:8083
+    description: Dispatch service (local)
+  - url: http://localhost:8084
+    description: Analytics service (local)
+  - url: http://localhost:8085
+    description: Realtime gateway (local)
+
+tags:
+  - name: System
+  - name: Auth
+  - name: Incident
+  - name: Station
+  - name: Dispatch
+  - name: Analytics
+  - name: Realtime
+
+security:
+  - bearerAuth: []
+
+paths:
+  /health:
+    get:
+      tags: [System]
+      summary: Service health check
+      description: Returns service health for the currently selected server.
+      security: []
+      operationId: getHealth
+      responses:
+        '200':
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  service:
+                    type: string
+                    example: auth
+
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register user
+      security: []
+      operationId: registerUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login and receive access/refresh tokens
+      security: []
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Tokens issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/refresh-token:
+    post:
+      tags: [Auth]
+      summary: Refresh token pair
+      security: []
+      operationId: refreshToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: Refreshed tokens issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/profile:
+    get:
+      tags: [Auth]
+      summary: Get current user profile
+      operationId: getProfile
+      responses:
+        '200':
+          description: Current profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Auth]
+      summary: Update current user profile
+      operationId: updateProfile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/users:
+    get:
+      tags: [Auth]
+      summary: List users (system_admin)
+      operationId: listUsers
+      responses:
+        '200':
+          description: Users list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /auth/users/{id}:
+    parameters:
+      - $ref: '#/components/parameters/UUIDPathId'
+    put:
+      tags: [Auth]
+      summary: Update user (system_admin)
+      operationId: updateUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Auth]
+      summary: Delete user (system_admin)
+      operationId: deleteUser
+      responses:
+        '204':
+          description: Deleted
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /incidents:
+    post:
+      tags: [Incident]
+      summary: Create incident and attempt auto-dispatch
+      operationId: createIncident
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateIncidentRequest'
+      responses:
+        '201':
+          description: Incident created (with optional dispatch warning)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateIncidentResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    get:
+      tags: [Incident]
+      summary: List incidents
+      operationId: listIncidents
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [created, dispatched, in_progress, resolved]
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [crime, fire, medical]
+      responses:
+        '200':
+          description: Incidents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Incident'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /internal/incidents:
+    get:
+      tags: [Incident]
+      summary: Internal list incidents (no auth middleware)
+      security: []
+      operationId: listIncidentsInternal
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Incidents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Incident'
+
+  /incidents/open:
+    get:
+      tags: [Incident]
+      summary: List non-resolved incidents
+      operationId: listOpenIncidents
+      responses:
+        '200':
+          description: Open incidents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Incident'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /incidents/{id}:
+    parameters:
+      - $ref: '#/components/parameters/UUIDPathId'
+    get:
+      tags: [Incident]
+      summary: Get incident by ID
+      operationId: getIncident
+      responses:
+        '200':
+          description: Incident
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Incident'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /incidents/{id}/status:
+    parameters:
+      - $ref: '#/components/parameters/UUIDPathId'
+    put:
+      tags: [Incident]
+      summary: Update incident status
+      operationId: updateIncidentStatus
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateIncidentStatusRequest'
+      responses:
+        '200':
+          description: Incident updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Incident'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /incidents/{id}/assign:
+    parameters:
+      - $ref: '#/components/parameters/UUIDPathId'
+    put:
+      tags: [Incident]
+      summary: Manually assign unit to incident
+      operationId: assignIncidentUnit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignIncidentRequest'
+      responses:
+        '200':
+          description: Incident updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Incident'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /stations:
+    post:
+      tags: [Station]
+      summary: Create responder station (system_admin)
+      operationId: createStation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStationRequest'
+      responses:
+        '201':
+          description: Station created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Station'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    get:
+      tags: [Station]
+      summary: List stations
+      operationId: listStations
+      parameters:
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [police, fire, hospital]
+      responses:
+        '200':
+          description: Stations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Station'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /stations/nearest:
+    get:
+      tags: [Station]
+      summary: Find nearest available station
+      operationId: findNearestStation
+      parameters:
+        - name: lat
+          in: query
+          required: true
+          schema:
+            type: number
+            format: double
+        - name: lng
+          in: query
+          required: true
+          schema:
+            type: number
+            format: double
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [police, fire, hospital]
+      responses:
+        '200':
+          description: Nearest station
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Station'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /stations/{id}:
+    parameters:
+      - $ref: '#/components/parameters/UUIDPathId'
+    get:
+      tags: [Station]
+      summary: Get station by ID
+      operationId: getStation
+      responses:
+        '200':
+          description: Station
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Station'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Station]
+      summary: Update station
+      operationId: updateStation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateStationRequest'
+      responses:
+        '200':
+          description: Station updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Station'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Station]
+      summary: Delete station (system_admin)
+      operationId: deleteStation
+      responses:
+        '204':
+          description: Deleted
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /vehicles/register:
+    post:
+      tags: [Dispatch]
+      summary: Register vehicle
+      operationId: registerVehicle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterVehicleRequest'
+      responses:
+        '201':
+          description: Vehicle created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Vehicle'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /vehicles:
+    get:
+      tags: [Dispatch]
+      summary: List vehicles
+      operationId: listVehicles
+      responses:
+        '200':
+          description: Vehicles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Vehicle'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /vehicles/available:
+    get:
+      tags: [Dispatch]
+      summary: List available vehicles
+      operationId: listAvailableVehicles
+      parameters:
+        - name: station_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Available vehicles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Vehicle'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /vehicles/nearest:
+    get:
+      tags: [Dispatch]
+      summary: Internal nearest available vehicle lookup
+      security: []
+      operationId: getNearestAvailableVehicle
+      parameters:
+        - name: lat
+          in: query
+          required: true
+          schema:
+            type: number
+            format: double
+        - name: lng
+          in: query
+          required: true
+          schema:
+            type: number
+            format: double
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [ambulance, fire_truck, police_car]
+      responses:
+        '200':
+          description: Nearest vehicle
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Vehicle'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /vehicles/all/internal:
+    get:
+      tags: [Dispatch]
+      summary: Internal list all vehicles
+      security: []
+      operationId: listAllVehiclesInternal
+      responses:
+        '200':
+          description: Vehicles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Vehicle'
+
+  /vehicles/{id}:
+    parameters:
+      - $ref: '#/components/parameters/UUIDPathId'
+    get:
+      tags: [Dispatch]
+      summary: Get vehicle by ID
+      operationId: getVehicle
+      responses:
+        '200':
+          description: Vehicle
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Vehicle'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Dispatch]
+      summary: Update vehicle metadata
+      operationId: updateVehicle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateVehicleRequest'
+      responses:
+        '200':
+          description: Vehicle updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Vehicle'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Dispatch]
+      summary: Delete vehicle
+      operationId: deleteVehicle
+      responses:
+        '204':
+          description: Deleted
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /vehicles/{id}/location:
+    parameters:
+      - $ref: '#/components/parameters/UUIDPathId'
+    get:
+      tags: [Dispatch]
+      summary: Get current vehicle location
+      operationId: getVehicleLocation
+      responses:
+        '200':
+          description: Current location
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VehicleLocationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [Dispatch]
+      summary: Update vehicle location
+      operationId: updateVehicleLocation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLocationRequest'
+      responses:
+        '200':
+          description: Location updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VehicleLocationUpdateResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /vehicles/{id}/status:
+    parameters:
+      - $ref: '#/components/parameters/UUIDPathId'
+    put:
+      tags: [Dispatch]
+      summary: Update vehicle status
+      operationId: updateVehicleStatus
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateVehicleStatusRequest'
+      responses:
+        '200':
+          description: Vehicle updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Vehicle'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /vehicles/{id}/status/internal:
+    parameters:
+      - $ref: '#/components/parameters/UUIDPathId'
+    put:
+      tags: [Dispatch]
+      summary: Internal vehicle status update
+      security: []
+      operationId: updateVehicleStatusInternal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateVehicleStatusRequest'
+      responses:
+        '200':
+          description: Vehicle updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Vehicle'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /analytics/response-times:
+    get:
+      tags: [Analytics]
+      summary: Average/min/max response times by incident type
+      operationId: getResponseTimes
+      responses:
+        '200':
+          description: Response-time aggregates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ResponseTimeResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /analytics/incidents-by-region:
+    get:
+      tags: [Analytics]
+      summary: Incident counts grouped by region and type
+      operationId: getIncidentsByRegion
+      responses:
+        '200':
+          description: Regional aggregates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RegionIncidentCount'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /analytics/resource-utilization:
+    get:
+      tags: [Analytics]
+      summary: Live resource utilization by service type
+      operationId: getResourceUtilization
+      responses:
+        '200':
+          description: Utilization metrics
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ResourceUtilizationResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /analytics/hospital-capacity:
+    get:
+      tags: [Analytics]
+      summary: Latest hospital capacity snapshots
+      operationId: getHospitalCapacity
+      responses:
+        '200':
+          description: Hospital capacity logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HospitalCapacityLog'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /analytics/dashboard:
+    get:
+      tags: [Analytics]
+      summary: Dashboard aggregate stats
+      operationId: getDashboardStats
+      responses:
+        '200':
+          description: Dashboard metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardStats'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /ws:
+    get:
+      tags: [Realtime]
+      summary: WebSocket upgrade endpoint
+      security: []
+      description: |
+        WebSocket handshake endpoint used by dashboard clients.
+
+        Query parameters:
+        - token: JWT access token
+
+        Notes:
+        - Uses HTTP GET upgrade to WebSocket protocol.
+        - Returns 101 Switching Protocols on successful upgrade.
+      operationId: connectWebSocket
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '101':
+          description: Switching Protocols (WebSocket established)
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    UUIDPathId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+
+    RegisterRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        role:
+          type: string
+          enum:
+            - system_admin
+            - hospital_admin
+            - police_admin
+            - fire_admin
+            - ambulance_driver
+            - police_driver
+            - fire_driver
+        station_id:
+          type: string
+          format: uuid
+      required: [name, email, password, role]
+
+    RegisterResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        user:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            email:
+              type: string
+              format: email
+            role:
+              type: string
+
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required: [email, password]
+
+    RefreshRequest:
+      type: object
+      properties:
+        refresh_token:
+          type: string
+      required: [refresh_token]
+
+    TokenResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        expires_in:
+          type: integer
+          format: int64
+      required: [access_token, refresh_token, expires_in]
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+        station_id:
+          type: string
+          format: uuid
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    UpdateProfileRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        password:
+          type: string
+          minLength: 8
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        role:
+          type: string
+          enum:
+            - system_admin
+            - hospital_admin
+            - police_admin
+            - fire_admin
+            - ambulance_driver
+            - police_driver
+            - fire_driver
+        station_id:
+          type: string
+          format: uuid
+          nullable: true
+
+    CreateIncidentRequest:
+      type: object
+      properties:
+        citizen_name:
+          type: string
+        citizen_phone:
+          type: string
+        incident_type:
+          type: string
+          enum: [crime, fire, medical]
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+        notes:
+          type: string
+      required: [citizen_name, incident_type, latitude, longitude]
+
+    Incident:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        citizen_name:
+          type: string
+        citizen_phone:
+          type: string
+        incident_type:
+          type: string
+          enum: [crime, fire, medical]
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+        notes:
+          type: string
+        created_by:
+          type: string
+          format: uuid
+        assigned_unit_id:
+          type: string
+          format: uuid
+          nullable: true
+        assigned_unit_type:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [created, dispatched, in_progress, resolved]
+        dispatched_at:
+          type: string
+          format: date-time
+          nullable: true
+        resolved_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateIncidentResponse:
+      type: object
+      properties:
+        incident:
+          $ref: '#/components/schemas/Incident'
+        dispatch_warning:
+          type: string
+          description: Present if incident was created but auto-dispatch failed.
+
+    UpdateIncidentStatusRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [created, dispatched, in_progress, resolved]
+      required: [status]
+
+    AssignIncidentRequest:
+      type: object
+      properties:
+        unit_id:
+          type: string
+          format: uuid
+        unit_type:
+          type: string
+      required: [unit_id, unit_type]
+
+    CreateStationRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [police, fire, hospital]
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+        total_capacity:
+          type: integer
+        available_capacity:
+          type: integer
+        contact_phone:
+          type: string
+      required: [name, type, latitude, longitude]
+
+    UpdateStationRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        is_available:
+          type: boolean
+        total_capacity:
+          type: integer
+        available_capacity:
+          type: integer
+        contact_phone:
+          type: string
+
+    Station:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        type:
+          type: string
+          enum: [police, fire, hospital]
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+        is_available:
+          type: boolean
+        total_capacity:
+          type: integer
+        available_capacity:
+          type: integer
+        contact_phone:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    RegisterVehicleRequest:
+      type: object
+      properties:
+        station_id:
+          type: string
+          format: uuid
+        station_type:
+          type: string
+          enum: [hospital, police, fire]
+        vehicle_type:
+          type: string
+          enum: [ambulance, fire_truck, police_car]
+        license_plate:
+          type: string
+        driver_name:
+          type: string
+        driver_id:
+          type: string
+          format: uuid
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+      required: [station_id, station_type, vehicle_type]
+
+    Vehicle:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        station_id:
+          type: string
+          format: uuid
+        station_type:
+          type: string
+          enum: [hospital, police, fire]
+        vehicle_type:
+          type: string
+          enum: [ambulance, fire_truck, police_car]
+        license_plate:
+          type: string
+        driver_name:
+          type: string
+        driver_id:
+          type: string
+          format: uuid
+          nullable: true
+        status:
+          type: string
+          enum: [available, en_route, at_scene, returning, off_duty]
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+        incident_id:
+          type: string
+          format: uuid
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    UpdateVehicleRequest:
+      type: object
+      properties:
+        station_id:
+          type: string
+          format: uuid
+        station_type:
+          type: string
+          enum: [hospital, police, fire]
+        vehicle_type:
+          type: string
+          enum: [ambulance, fire_truck, police_car]
+        license_plate:
+          type: string
+        driver_name:
+          type: string
+        driver_id:
+          type: string
+          format: uuid
+
+    UpdateLocationRequest:
+      type: object
+      properties:
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+      required: [latitude, longitude]
+
+    UpdateVehicleStatusRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [available, en_route, at_scene, returning, off_duty]
+      required: [status]
+
+    VehicleLocationResponse:
+      type: object
+      properties:
+        vehicle_id:
+          type: string
+          format: uuid
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+        status:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+
+    VehicleLocationUpdateResponse:
+      type: object
+      properties:
+        vehicle_id:
+          type: string
+          format: uuid
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+        status:
+          type: string
+
+    ResponseTimeResult:
+      type: object
+      properties:
+        incident_type:
+          type: string
+        avg_seconds:
+          type: number
+          format: double
+        min_seconds:
+          type: integer
+        max_seconds:
+          type: integer
+        count:
+          type: integer
+
+    RegionIncidentCount:
+      type: object
+      properties:
+        region:
+          type: string
+        incident_type:
+          type: string
+        count:
+          type: integer
+
+    ResourceUtilizationResponse:
+      type: object
+      properties:
+        service_type:
+          type: string
+        total_units:
+          type: integer
+        active_units:
+          type: integer
+        utilization_percent:
+          type: number
+          format: double
+
+    HospitalCapacityLog:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        hospital_id:
+          type: string
+          format: uuid
+        hospital_name:
+          type: string
+        total_beds:
+          type: integer
+        available_beds:
+          type: integer
+        recorded_at:
+          type: string
+          format: date-time
+
+    DashboardStats:
+      type: object
+      properties:
+        total_incidents:
+          type: integer
+        avg_response_time_seconds:
+          type: number
+          format: double
+        incidents_by_type:
+          type: array
+          items:
+            type: object
+            properties:
+              incident_type:
+                type: string
+              count:
+                type: integer

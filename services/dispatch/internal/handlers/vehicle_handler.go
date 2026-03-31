@@ -586,7 +586,15 @@ func (h *VehicleHandler) UpdateVehicle(c *gin.Context) {
 	c.JSON(http.StatusOK, vehicle)
 }
 
-// DeleteVehicle removes a vehicle record
+// activeVehicleStatuses are states in which a vehicle is deployed and must not be deleted.
+var activeVehicleStatuses = map[string]bool{
+	models.VehicleEnRoute:   true,
+	models.VehicleAtScene:   true,
+	models.VehicleReturning: true,
+}
+
+// DeleteVehicle removes a vehicle record.
+// Rejects with 409 Conflict if the vehicle is currently deployed (en_route, at_scene, returning).
 func (h *VehicleHandler) DeleteVehicle(c *gin.Context) {
 	roleValue, hasRole := c.Get("role")
 	roleStr, _ := roleValue.(string)
@@ -607,6 +615,14 @@ func (h *VehicleHandler) DeleteVehicle(c *gin.Context) {
 		return
 	}
 	if !ensureVehicleStationAccess(c, vehicle) {
+		return
+	}
+
+	// Refuse to delete a vehicle that is currently responding to an incident.
+	if activeVehicleStatuses[vehicle.Status] {
+		c.JSON(http.StatusConflict, gin.H{
+			"error": "Cannot delete a vehicle that is currently deployed (status: " + vehicle.Status + "). Set it to 'available' or 'off_duty' first.",
+		})
 		return
 	}
 

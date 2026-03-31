@@ -27,6 +27,36 @@
 	showstringspaces=false
 }
 
+% JSON language support for listings
+\lstdefinelanguage{json}{
+	basicstyle=\ttfamily\scriptsize,
+	numbers=left,
+	numberstyle=\scriptsize,
+	stepnumber=1,
+	numbersep=8pt,
+	showstringspaces=false,
+	breaklines=true,
+	frame=single,
+	literate=
+	 *{0}{{{0}}}{1}
+	  {1}{{{1}}}{1}
+	  {2}{{{2}}}{1}
+	  {3}{{{3}}}{1}
+	  {4}{{{4}}}{1}
+	  {5}{{{5}}}{1}
+	  {6}{{{6}}}{1}
+	  {7}{{{7}}}{1}
+	  {8}{{{8}}}{1}
+	  {9}{{{9}}}{1}
+	  {:}{{{\color{red}{:}}}}{1}
+	  {,}{{{\color{red}{,}}}}{1}
+	  {\{}{{{\color{blue}{\{}}}}{1}
+	  {\}}{{{\color{blue}{\}}}}}{1}
+	  {[}{{{\color{blue}{[}}}}{1}
+	  {]}{{{\color{blue}{]}}}}{1},
+}
+\lstdefinelanguage{JSON}[]{json}{}
+
 % TikZ Libraries and Global Styles
 \usetikzlibrary{shapes,arrows,positioning,fit,backgrounds}
 \tikzset{
@@ -45,6 +75,7 @@
 \rhead{CPEN 421 Phase 1}
 \lhead{System Design}
 \cfoot{\thepage}
+\setlength{\headheight}{14.5pt}
 
 \renewcommand{\arraystretch}{1.3}
 
@@ -190,7 +221,6 @@ Realtime Gateway & none (in-memory WebSocket sessions) \\
 \begin{tikzpicture}
 	\node[erbox] (users) {
 		\textbf{users} \\
-		\hline
 		\rule{0pt}{2.5ex}id: UUID (PK) \\
 		email: VARCHAR \\
 		password\_hash \\
@@ -202,7 +232,6 @@ Realtime Gateway & none (in-memory WebSocket sessions) \\
 
 	\node[erbox, right=4cm of users] (tokens) {
 		\textbf{refresh\_tokens} \\
-		\hline
 		\rule{0pt}{2.5ex}id: UUID (PK) \\
 		user\_id: UUID (FK) \\
 		token \\
@@ -221,7 +250,6 @@ Realtime Gateway & none (in-memory WebSocket sessions) \\
 \begin{tikzpicture}
 	\node[erbox] (stations) {
 		\textbf{stations} \\
-		\hline
 		\rule{0pt}{2.5ex}id: UUID (PK) \\
 		name, station\_type \\
 		location: POINT \\
@@ -231,7 +259,6 @@ Realtime Gateway & none (in-memory WebSocket sessions) \\
 
 	\node[erbox, right=4cm of stations] (incidents) {
 		\textbf{incidents} \\
-		\hline
 		\rule{0pt}{2.5ex}id: UUID (PK) \\
 		citizen\_name, citizen\_phone \\
 		incident\_type \\
@@ -253,7 +280,6 @@ Realtime Gateway & none (in-memory WebSocket sessions) \\
 \begin{tikzpicture}
 	\node[erbox] (vehicles) {
 		\textbf{vehicles} \\
-		\hline
 		\rule{0pt}{2.5ex}id: UUID (PK) \\
 		station\_id, station\_type \\
 		vehicle\_type \\
@@ -264,7 +290,6 @@ Realtime Gateway & none (in-memory WebSocket sessions) \\
 
 	\node[erbox, right=4cm of vehicles] (locations) {
 		\textbf{location\_histories} \\
-		\hline
 		\rule{0pt}{2.5ex}id: UUID (PK) \\
 		vehicle\_id: UUID (FK) \\
 		latitude, longitude \\
@@ -282,7 +307,6 @@ Realtime Gateway & none (in-memory WebSocket sessions) \\
 \begin{tikzpicture}
 	\node[erbox] (metrics) {
 		\textbf{incident\_metrics} \\
-		\hline
 		\rule{0pt}{2.5ex}id: UUID (PK) \\
 		incident\_id (unique) \\
 		incident\_type, region \\
@@ -292,7 +316,6 @@ Realtime Gateway & none (in-memory WebSocket sessions) \\
 
 	\node[erbox, right=4cm of metrics] (rt) {
 		\textbf{hospital\_capacity\_logs} \\
-		\hline
 		\rule{0pt}{2.5ex}id: UUID (PK) \\
 		hospital\_id \\
 		available\_beds \\

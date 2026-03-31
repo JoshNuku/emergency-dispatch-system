@@ -43,6 +43,18 @@ func (r *UserRepository) FindAll() ([]models.User, error) {
 	return users, err
 }
 
+// FindDrivers returns all driver-role users, optionally scoped to a station.
+// stationID="" means no station filter (all drivers).
+func (r *UserRepository) FindDrivers(stationID string) ([]models.User, error) {
+	var users []models.User
+	query := r.db.Where("role LIKE ?", "%driver%").Order("created_at DESC")
+	if stationID != "" {
+		query = query.Where("station_id = ?", stationID)
+	}
+	err := query.Find(&users).Error
+	return users, err
+}
+
 func (r *UserRepository) Update(user *models.User) error {
 	return r.db.Save(user).Error
 }

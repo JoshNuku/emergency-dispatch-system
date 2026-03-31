@@ -107,7 +107,10 @@ func (c *Consumer) handleMessage(msg amqp.Delivery) {
 
 	vehicleIDStr, _ := data["vehicle_id"].(string)
 	vehicleStatus, _ := data["status"].(string)
+	log.Printf("MQ: Received vehicle status change for %s: %s", vehicleIDStr, vehicleStatus)
+
 	if vehicleIDStr == "" || vehicleStatus == "" {
+		log.Printf("MQ: Missing vehicle_id or status in event data")
 		return
 	}
 
@@ -119,19 +122,24 @@ func (c *Consumer) handleMessage(msg amqp.Delivery) {
 	incident, err := c.repo.FindActiveByAssignedUnitID(vehicleID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
+			log.Printf("MQ: No active incident found for vehicle %s", vehicleIDStr)
 			return
 		}
-		log.Printf("Failed to find active incident for vehicle %s: %v", vehicleIDStr, err)
+		log.Printf("MQ: Error finding active incident for vehicle %s: %v", vehicleIDStr, err)
 		return
 	}
+
+	log.Printf("MQ: Found active incident %s for vehicle %s. Current status: %s", incident.ID, vehicleIDStr, incident.Status)
 
 	normalizedVehicleStatus := normalizeVehicleStatus(vehicleStatus)
 	targetStatus, shouldTransition := targetIncidentStatusFromVehicle(normalizedVehicleStatus, incident.Status)
 	if !shouldTransition {
+		log.Printf("MQ: No incident transition required for vehicle status %s", normalizedVehicleStatus)
 		return
 	}
 
 	if !models.CanTransitionStatus(incident.Status, targetStatus) {
+		log.Printf("MQ: Invalid incident lifecycle transition: %s -> %s", incident.Status, targetStatus)
 		return
 	}
 
@@ -173,22 +181,15 @@ func normalizeVehicleStatus(status string) string {
 }
 
 func targetIncidentStatusFromVehicle(vehicleStatus string, currentIncidentStatus string) (string, bool) {
+	// Only at_scene and returning should trigger In Progress automatically
 	switch vehicleStatus {
-	case "en_route":
-		if currentIncidentStatus == models.StatusCreated {
-			return models.StatusDispatched, true
+	case "at_scene", "returning":
+		if currentIncidentStatus == models.StatusResolved {
+			return "", false
 		}
-		if currentIncidentStatus == models.StatusDispatched {
-			return models.StatusInProgress, true
-		}
-		return "", false
-	case "at_scene":
 		return models.StatusInProgress, true
-	case "returning", "available":
-		// Returning/available means the unit lifecycle changed, not that incident
-		// outcome is complete. Incident resolution is an explicit workflow action.
-		return "", false
 	default:
+		// Other states (en_route, available, off_duty) do not change the incident status
 		return "", false
 	}
 }

@@ -381,15 +381,25 @@ export function FleetPage() {
                   </button>
                   <div className="flex items-center gap-2">
                     <StatusPill status={v.status} />
-                    {canManageFleet && (
-                      <button
-                        type="button"
-                        onClick={() => setPendingDeleteVehicle(v.id)}
-                        className="rounded-md border border-danger/20 bg-danger/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-danger"
-                      >
-                        Delete
-                      </button>
-                    )}
+                  {canManageFleet && (() => {
+                      const isActive = ["en_route", "at_scene", "returning"].includes(v.status);
+                      return isActive ? (
+                        <span
+                          title="Vehicle is currently deployed and cannot be deleted"
+                          className="rounded-md border border-line px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted cursor-not-allowed opacity-50"
+                        >
+                          Active
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setPendingDeleteVehicle(v.id)}
+                          className="rounded-md border border-danger/20 bg-danger/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-danger"
+                        >
+                          Delete
+                        </button>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
