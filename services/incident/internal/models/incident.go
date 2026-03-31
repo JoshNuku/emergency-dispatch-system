@@ -18,6 +18,7 @@ type Incident struct {
 	CreatedBy        uuid.UUID  `gorm:"type:uuid;not null" json:"created_by"`
 	AssignedUnitID   *uuid.UUID `gorm:"type:uuid" json:"assigned_unit_id,omitempty"`
 	AssignedUnitType string     `gorm:"size:50" json:"assigned_unit_type,omitempty"`
+	AssignedStationID *uuid.UUID `gorm:"type:uuid" json:"assigned_station_id,omitempty"`
 	Status           string     `gorm:"size:50;not null;default:'created';index" json:"status"`
 	DispatchedAt     *time.Time `json:"dispatched_at,omitempty"`
 	ResolvedAt       *time.Time `json:"resolved_at,omitempty"`

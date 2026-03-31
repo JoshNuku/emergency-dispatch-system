@@ -661,6 +661,7 @@ func (h *VehicleHandler) GetNearestAvailableVehicle(c *gin.Context) {
 	latStr := c.Query("lat")
 	lngStr := c.Query("lng")
 	vehicleType := c.Query("type")
+	limitStr := c.DefaultQuery("limit", "1")
 
 	if latStr == "" || lngStr == "" || vehicleType == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "lat, lng, and type parameters are required"})
@@ -668,6 +669,7 @@ func (h *VehicleHandler) GetNearestAvailableVehicle(c *gin.Context) {
 	}
 
 	var lat, lng float64
+	var limit int
 	if _, err := fmt.Sscanf(latStr, "%f", &lat); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid latitude"})
 		return
@@ -676,14 +678,22 @@ func (h *VehicleHandler) GetNearestAvailableVehicle(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid longitude"})
 		return
 	}
+	if _, err := fmt.Sscanf(limitStr, "%d", &limit); err != nil {
+		limit = 1
+	}
 
-	vehicle, err := h.repo.FindNearestAvailable(lat, lng, vehicleType)
+	vehicles, err := h.repo.FindNearestAvailable(lat, lng, vehicleType, limit)
 	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error while searching for vehicles"})
+		return
+	}
+
+	if len(vehicles) == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"error": "No available vehicle found"})
 		return
 	}
 
-	c.JSON(http.StatusOK, vehicle)
+	c.JSON(http.StatusOK, vehicles)
 }
 
 // ListAllVehiclesInternal returns all vehicles without auth filtering.

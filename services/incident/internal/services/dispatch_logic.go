@@ -58,39 +58,81 @@ func (s *DispatchService) AutoDispatch(incident *models.Incident) error {
 		vehicleType = "ambulance"
 	}
 
-	// Find nearest available vehicle across all stations
-	vehicle, err := s.findNearestVehicle(incident.Latitude, incident.Longitude, vehicleType)
+	// Fetch nearest available vehicles from the dispatch service
+	vehicles, err := s.findNearestVehicles(incident.Latitude, incident.Longitude, vehicleType, 5)
 	if err != nil {
-		log.Printf("No available %s found for incident %s: %v", vehicleType, incident.ID, err)
-		return fmt.Errorf("no available %s found", vehicleType)
+		return fmt.Errorf("failed to fetch candidate vehicles: %w", err)
 	}
 
-	log.Printf("Nearest %s for incident %s: %s (Station: %s)", vehicleType, incident.ID, vehicle.ID, vehicle.StationID)
+	var selectedVehicle *AvailableVehicleResponse
+	var selectedStation *models.ResponderStation
 
-	// Mark vehicle as dispatched in the incident record
-	vehicleID, _ := uuid.Parse(vehicle.ID)
-	incident.AssignedUnitID = &vehicleID
+	// Iterate through candidates to find one from a station with capacity
+	for _, v := range vehicles {
+		stationID, err := uuid.Parse(v.StationID)
+		if err != nil {
+			continue
+		}
+
+		station, err := s.stationRepo.FindByID(stationID)
+		if err != nil {
+			log.Printf("WARN: Station %s not found in incident database", v.StationID)
+			continue
+		}
+
+		// Capacity check: if it's a hospital or if capacity is tracked, it must be > 0
+		// If capacity is 0/0 and it's not a hospital, we can treat it as unlimited or check specific rules.
+		// For this implementation, we enforce capacity if AvailableCapacity is set or if it's a hospital.
+		if station.Type == models.StationTypeHospital && station.AvailableCapacity <= 0 {
+			log.Printf("INFO: Skipping vehicle %s because station %s is at capacity", v.ID, station.Name)
+			continue
+		}
+
+		// Found a valid candidate
+		selectedVehicle = &v
+		selectedStation = station
+		break
+	}
+
+	if selectedVehicle == nil {
+		return fmt.Errorf("no available %s found with station capacity", vehicleType)
+	}
+
+	log.Printf("Nearest %s with capacity for incident %s: %s (Station: %s)", vehicleType, incident.ID, selectedVehicle.ID, selectedStation.Name)
+
+	// Mark vehicle and station as dispatched in the incident record
+	vehicleUUID, _ := uuid.Parse(selectedVehicle.ID)
+	stationUUID, _ := uuid.Parse(selectedVehicle.StationID)
+	
+	incident.AssignedUnitID = &vehicleUUID
+	incident.AssignedStationID = &stationUUID
 	incident.AssignedUnitType = vehicleType
 	incident.Status = models.StatusDispatched
 
 	now := time.Now()
 	incident.DispatchedAt = &now
 
+	// Update station capacity (decrement)
+	if selectedStation.Type == models.StationTypeHospital {
+		selectedStation.AvailableCapacity--
+		if err := s.stationRepo.Update(selectedStation); err != nil {
+			log.Printf("WARN: Failed to decrement capacity for station %s: %v", selectedStation.ID, err)
+		}
+	}
+
 	if err := s.incidentRepo.Update(incident); err != nil {
 		return fmt.Errorf("failed to update incident: %w", err)
 	}
 
 	// ── Synchronize vehicle status in the dispatch service ──────────────
-	// Mark the vehicle as en_route so it's no longer shown as available
-	if err := s.updateVehicleStatus(vehicle.ID, "en_route"); err != nil {
-		log.Printf("WARN: Failed to update vehicle %s status to en_route: %v", vehicle.ID, err)
-		// Non-fatal: incident is already dispatched, vehicle status is secondary
+	if err := s.updateVehicleStatus(selectedVehicle.ID, "en_route"); err != nil {
+		log.Printf("WARN: Failed to update vehicle %s status to en_route: %v", selectedVehicle.ID, err)
 	}
 
 	// Publish events to RabbitMQ
 	if s.publisher != nil {
 		s.publisher.PublishIncidentCreated(incident)
-		s.publisher.PublishIncidentDispatched(incident, vehicle.StationID, vehicle.ID)
+		s.publisher.PublishIncidentDispatched(incident, selectedVehicle.StationID, selectedVehicle.ID)
 	}
 
 	return nil
@@ -131,8 +173,9 @@ func (s *DispatchService) updateVehicleStatus(vehicleID, status string) error {
 	return nil
 }
 
-func (s *DispatchService) findNearestVehicle(lat, lng float64, vehicleType string) (*AvailableVehicleResponse, error) {
-	url := fmt.Sprintf("%s/vehicles/nearest?lat=%f&lng=%f&type=%s", s.dispatchServiceURL, lat, lng, vehicleType)
+// findNearestVehicles calls the dispatch service to find multiple nearest available vehicles
+func (s *DispatchService) findNearestVehicles(lat, lng float64, vehicleType string, limit int) ([]AvailableVehicleResponse, error) {
+	url := fmt.Sprintf("%s/vehicles/nearest?lat=%f&lng=%f&type=%s&limit=%d", s.dispatchServiceURL, lat, lng, vehicleType, limit)
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("dispatch service unavailable: %w", err)
@@ -144,12 +187,12 @@ func (s *DispatchService) findNearestVehicle(lat, lng float64, vehicleType strin
 		return nil, fmt.Errorf("dispatch service returned %d: %s", resp.StatusCode, string(body))
 	}
 
-	var vehicle AvailableVehicleResponse
-	if err := json.NewDecoder(resp.Body).Decode(&vehicle); err != nil {
+	var vehicles []AvailableVehicleResponse
+	if err := json.NewDecoder(resp.Body).Decode(&vehicles); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	return &vehicle, nil
+	return vehicles, nil
 }
 
 func (s *DispatchService) findAvailableVehicle(stationID uuid.UUID, stationType string) (*AvailableVehicleResponse, error) {

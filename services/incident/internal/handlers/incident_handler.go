@@ -283,9 +283,25 @@ func (h *IncidentHandler) UpdateStatus(c *gin.Context) {
 
 	// When resolved, release the assigned vehicle back to available
 	if req.Status == models.StatusResolved && incident.AssignedUnitID != nil {
+		// 1. Release vehicle status in dispatch service
 		if err := h.dispatch.ReleaseVehicle(incident.AssignedUnitID.String()); err != nil {
-			// Log but don't fail the request — incident is already resolved
 			log.Printf("WARN: Failed to release vehicle %s: %v", incident.AssignedUnitID, err)
+		}
+
+		// 2. Replenish station capacity in incident service
+		if incident.AssignedStationID != nil {
+			station, err := h.repo.FindStationByID(*incident.AssignedStationID)
+			if err == nil && station != nil {
+				// We only increment if it's a hospital or if we tracked it
+				if station.Type == models.StationTypeHospital {
+					station.AvailableCapacity++
+					if err := h.repo.UpdateStation(station); err != nil {
+						log.Printf("WARN: Failed to restore capacity for station %s: %v", station.ID, err)
+					} else {
+						log.Printf("INFO: Restored capacity for station %s upon incident resolution", station.Name)
+					}
+				}
+			}
 		}
 	}
 

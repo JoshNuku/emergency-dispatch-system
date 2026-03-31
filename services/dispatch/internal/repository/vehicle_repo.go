@@ -102,9 +102,12 @@ func (r *VehicleRepository) GetLocationHistory(vehicleID uuid.UUID, limit int) (
 	return history, err
 }
 
-// FindNearestAvailable uses PostGIS to find the nearest available vehicle of a specific type.
-func (r *VehicleRepository) FindNearestAvailable(lat, lng float64, vehicleType string) (*models.Vehicle, error) {
-	var vehicle models.Vehicle
+// FindNearestAvailable uses PostGIS to find the nearest available vehicles of a specific type.
+func (r *VehicleRepository) FindNearestAvailable(lat, lng float64, vehicleType string, limit int) ([]models.Vehicle, error) {
+	if limit <= 0 {
+		limit = 1
+	}
+	var vehicles []models.Vehicle
 
 	query := r.db.Where("status = ? AND vehicle_type = ?", models.VehicleAvailable, vehicleType)
 
@@ -116,10 +119,8 @@ func (r *VehicleRepository) FindNearestAvailable(lat, lng float64, vehicleType s
 
 	err := query.
 		Order(orderClause).
-		First(&vehicle).Error
+		Limit(limit).
+		Find(&vehicles).Error
 
-	if err != nil {
-		return nil, err
-	}
-	return &vehicle, nil
+	return vehicles, err
 }

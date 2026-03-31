@@ -71,3 +71,13 @@ func (r *IncidentRepository) FindActiveByAssignedUnitID(unitID uuid.UUID) (*mode
 	}
 	return &incident, nil
 }
+
+func (r *IncidentRepository) FindStationByID(id uuid.UUID) (*models.ResponderStation, error) {
+	var station models.ResponderStation
+	err := r.db.Where("id = ?", id).First(&station).Error
+	return &station, err
+}
+
+func (r *IncidentRepository) UpdateStation(station *models.ResponderStation) error {
+	return r.db.Save(station).Error
+}
