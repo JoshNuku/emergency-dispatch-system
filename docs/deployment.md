@@ -1,20 +1,21 @@
-# Production Deployment Guide (Render Free Tier, No Docker)
+# Production Deployment Guide
 
-This guide deploys the full stack on Render using the `render.yaml` Blueprint.
+This guide deploys backend services on Render using the `render.yaml` Blueprint, and the frontend on Vercel.
 
 ## 1. Prerequisites
 
-- A Render account
+- A Render account (for backend services)
+- A Vercel account (for frontend)
 - A RabbitMQ URL (CloudAMQP free plan recommended)
 - A PostgreSQL URL/credentials from a free provider (Neon/Supabase)
 - A Mapbox public token
 
-## 2. Deploy with Blueprint
+## 2. Deploy Backend Services with Render Blueprint
 
 1. Push this repository to GitHub/GitLab.
 2. In Render, choose New + Blueprint and select your repository.
 3. Render will read `render.yaml` and create:
-	- 6 free web services (`eds-web`, `eds-auth`, `eds-incident`, `eds-dispatch`, `eds-analytics`, `eds-realtime-gateway`)
+	- 5 free web services (`eds-auth`, `eds-incident`, `eds-dispatch`, `eds-analytics`, `eds-realtime-gateway`)
 
 ## 2.1 About Databases on Free Tier
 
@@ -34,10 +35,7 @@ Set these in Render (marked `sync: false` in `render.yaml`):
 - `DISPATCH_DB_HOST`, `DISPATCH_DB_PORT`, `DISPATCH_DB_USER`, `DISPATCH_DB_PASSWORD`, `DISPATCH_DB_NAME`, `DISPATCH_DB_SSLMODE`
 - `ANALYTICS_DB_HOST`, `ANALYTICS_DB_PORT`, `ANALYTICS_DB_USER`, `ANALYTICS_DB_PASSWORD`, `ANALYTICS_DB_NAME`, `ANALYTICS_DB_SSLMODE`
 - `CORS_ALLOW_ORIGINS` on analytics and realtime-gateway
-	- Set to your frontend URL, e.g. `https://eds-web.onrender.com`
-- `NEXT_PUBLIC_MAPBOX_TOKEN` on `eds-web`
-- `NEXT_PUBLIC_WS_URL` on `eds-web`
-	- Use secure websocket URL, e.g. `wss://eds-realtime-gateway.onrender.com/ws`
+	- Set to your Vercel frontend URL, e.g. `https://emergency-dispatch-system.vercel.app`
 
 ## 4. PostGIS Initialization
 
@@ -55,7 +53,15 @@ For hosted free Postgres providers where extension creation is restricted, enabl
 
 Set `*_DB_SSLMODE=require` on Render for all backend services.
 
-## 5. Verify Deployment
+## 5. Deploy Frontend on Vercel
+
+1. In Vercel, import the repository and select the `web/` directory as the root.
+2. Set environment variables:
+	- `NEXT_PUBLIC_MAPBOX_TOKEN`: Your Mapbox public token
+	- `NEXT_PUBLIC_WS_URL`: Your Render realtime gateway WebSocket URL, e.g. `wss://eds-realtime-gateway.onrender.com/ws`
+3. Deploy.
+
+## 6. Verify Deployment
 
 Check these endpoints:
 
@@ -64,10 +70,11 @@ Check these endpoints:
 - `https://eds-dispatch.onrender.com/health`
 - `https://eds-analytics.onrender.com/health`
 - `https://eds-realtime-gateway.onrender.com/health`
-- Frontend URL from `eds-web`
+- Frontend: `https://emergency-dispatch-system.vercel.app`
 
-## 6. Important Notes
+## 7. Important Notes
 
-- Frontend is standard Next.js on Render (Node runtime, no Docker).
-- Backends are native Go services on Render (no Docker).
-- If you change service names in Render, update `render.yaml` service references.
+- Frontend is deployed on Vercel (standard Next.js).
+- Backends are native Go services deployed on Render (no Docker).
+- If you change service names in Render, update `render.yaml` and Vercel environment variables accordingly.
+- Vercel and Render services communicate via public HTTPS/WebSocket endpoints.

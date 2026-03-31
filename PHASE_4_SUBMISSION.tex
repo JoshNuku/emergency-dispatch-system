@@ -1,0 +1,375 @@
+\documentclass[12pt,a4paper]{report}
+\usepackage[T1]{fontenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fancyhdr}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{lmodern}
+\usepackage{tikz}
+
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, calc}
+
+% Code listing styling
+\lstset{
+	basicstyle=\ttfamily\scriptsize,
+	breaklines=true,
+	commentstyle=\itshape\color{gray},
+	keywordstyle=\bfseries\color{blue},
+	stringstyle=\color{red!70!black},
+	backgroundcolor=\color{lightgray!10},
+	frame=single,
+	captionpos=b,
+	showstringspaces=false,
+	numbers=left,
+	numberstyle=\tiny\color{gray},
+	stepnumber=1,
+	numbersep=8pt,
+	tabsize=4
+}
+
+% Header and Footer
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{CPEN 421 Phase 4}
+\lhead{Documentation and Demonstration}
+\cfoot{\thepage}
+
+\renewcommand{\arraystretch}{1.3}
+
+\begin{document}
+
+% ============================================================================
+% CUSTOM TITLE PAGE
+% ============================================================================
+\begin{titlepage}
+	\begin{center}
+		\vspace*{1cm}
+
+		\includegraphics[width=0.3\textwidth]{logo.png}\\[1cm]
+
+		{\Large \textbf{UNIVERSITY OF GHANA}}\\[0.2cm]
+		{\large School of Engineering Sciences}\\[0.2cm]
+		{\large Department of Computer Engineering}\\[1cm]
+
+		\rule{\linewidth}{0.5mm} \\[0.4cm]
+		{\huge \textbf{National Emergency Response and Dispatch Platform}} \\[0.2cm]
+		{\large \textbf{Phase 4: Documentation and Demonstration}} \\[0.4cm]
+		\rule{\linewidth}{0.5mm} \\[1.5cm]
+
+		{\Large \textbf{CPEN 421: Mobile and Web Design Architecture}}\\[1cm]
+
+		{\large \textbf{Group 5}}\\[0.5cm]
+
+		\begin{tabular}{ll}
+			\textbf{Joshua Nuku} & 11252857 \\
+			\textbf{Jeffery Quansah} & 11252855 \\
+		\end{tabular}
+
+		\vfill
+
+		{\large \textbf{Source Code Repository:}}\\
+		\url{https://github.com/JoshNuku/emergency-dispatch-system.git}\\[0.8cm]
+
+		{\large \textbf{Lecturer:} Dr. Gifty Osei}\\
+		{\large \textbf{TA:} Nathaniel Adika}\\[0.8cm]
+
+		\large \today
+
+	\end{center}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+% ============================================================================
+% CHAPTER 1: PHASE 4 OVERVIEW
+% ============================================================================
+\chapter{Phase 4 Overview}
+
+\section{Objective}
+
+Phase 4 consolidates the entire project into a submission-ready package by delivering:
+
+\begin{enumerate}
+	\item Complete source code for all microservices and frontend.
+	\item API documentation using OpenAPI and Postman collection artifacts.
+	\item Clear deployment instructions for local and hosted environments.
+	\item Demonstration video link.
+\end{enumerate}
+
+\section{Delivered Components}
+
+The repository now includes all implementation and documentation artifacts expected by the course timeline:
+
+\begin{itemize}
+	\item Backend services in \texttt{services/auth}, \texttt{services/incident}, \texttt{services/dispatch}, \texttt{services/analytics}, and \texttt{services/realtime-gateway}.
+	\item Frontend client in \texttt{web}.
+	\item API documentation in \texttt{docs/openapi.yaml} and \texttt{docs/postman\_collection.json}.
+	\item Deployment and setup guides in \texttt{docs/local-setup.md} and \texttt{docs/deployment.md}.
+	\item Environment blueprint for hosted deployment in \texttt{render.yaml}.
+\end{itemize}
+
+\newpage
+
+% ============================================================================
+% CHAPTER 2: SOURCE CODE DELIVERY
+% ============================================================================
+\chapter{Complete Source Code Delivery}
+
+\section{Repository Structure}
+
+The codebase is organized as a monorepo with service boundaries preserved by folder and per-service Go modules.
+
+\begin{lstlisting}[language=bash, caption=Phase 4 Repository Structure (Condensed), numbers=none]
+Emergency Dispatch System/
+|-- docs/
+|   |-- architecture.md
+|   |-- deployment.md
+|   |-- local-setup.md
+|   |-- openapi.yaml
+|   `-- postman_collection.json
+|-- scripts/
+|   |-- run-dev.sh
+|   `-- setup-db.sql
+|-- services/
+|   |-- auth/
+|   |-- incident/
+|   |-- dispatch/
+|   |-- analytics/
+|   `-- realtime-gateway/
+|-- web/
+|-- verify_dispatch.py
+`-- render.yaml
+\end{lstlisting}
+
+\section{Service Completeness}
+
+Each backend service has:
+
+\begin{itemize}
+	\item Independent \texttt{go.mod} and entrypoint under \texttt{cmd/main.go}.
+	\item Dedicated configuration loader and environment variable mapping.
+	\item Domain models, repository layer, handlers, middleware, and route registration.
+	\item Health endpoint for runtime verification.
+\end{itemize}
+
+\section{Runtime Ports and Responsibilities}
+
+\begin{table}[H]
+\centering\small
+\caption{Final Service Matrix}
+\begin{tabular}{|l|l|p{8.1cm}|}
+\hline
+\textbf{Service} & \textbf{Default Port} & \textbf{Primary Responsibility} \\
+\hline
+Auth & 8081 & User registration, login, refresh tokens, profile management, role-gated user admin \\
+\hline
+Incident & 8082 & Incident lifecycle management, station management, nearest responder logic \\
+\hline
+Dispatch & 8083 & Vehicle registration, location updates, availability/status management, nearest vehicle query \\
+\hline
+Analytics & 8084 & Event consumption and derived metrics endpoints for operational dashboards \\
+\hline
+Realtime Gateway & 8085 & JWT-protected WebSocket channel and RabbitMQ to client broadcast \\
+\hline
+Web Frontend & 3000 & Administrator-facing client interface and dashboard interactions \\
+\hline
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================================
+% CHAPTER 3: API DOCUMENTATION DELIVERY
+% ============================================================================
+\chapter{API Documentation Delivery}
+
+\section{OpenAPI Specification}
+
+A unified OpenAPI 3.0.3 specification is provided at \texttt{docs/openapi.yaml}. It documents core endpoints across all backend services and includes:
+
+\begin{itemize}
+	\item Server definitions for local service ports.
+	\item Tags grouped by domain (Auth, Incident, Station, Dispatch, Analytics, Realtime).
+	\item Request/response schemas and reusable components.
+	\item Security definitions using Bearer JWT.
+\end{itemize}
+
+\section{Swagger UI Availability}
+
+All backend services expose an in-service Swagger viewer:
+
+\begin{itemize}
+	\item \texttt{/swagger/openapi.yaml} serves the specification file.
+	\item \texttt{/swagger} renders Swagger UI for quick endpoint inspection and testing.
+\end{itemize}
+
+\begin{lstlisting}[language=bash, caption=Swagger Access Examples, numbers=none]
+https://eds-auth.onrender.com/swagger
+https://eds-incident.onrender.com/swagger
+https://eds-dispatch.onrender.com/swagger
+https://eds-analytics.onrender.com/swagger
+https://eds-realtime-gateway.onrender.com/swagger
+\end{lstlisting}
+
+\section{Postman Collection}
+
+A generated Postman collection exists at \texttt{docs/postman\_collection.json}. It includes grouped requests for health checks, authentication routes, and service endpoints, enabling rapid functional verification without manual request construction.
+
+\section{Representative Endpoint Coverage}
+
+\begin{table}[H]
+\centering\small
+\caption{Examples from Documented API Surface}
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{Method} & \textbf{Endpoint} & \textbf{Description} \\
+\hline
+POST & /auth/login & Authenticate user and issue access/refresh tokens \\
+\hline
+POST & /incidents & Create incident and attempt auto-dispatch \\
+\hline
+GET & /incidents/open & Retrieve open incidents \\
+\hline
+GET & /vehicles & List vehicles and statuses \\
+\hline
+GET & /analytics/dashboard & Retrieve dashboard KPI aggregates \\
+\hline
+GET & /ws & WebSocket handshake endpoint for live updates \\
+\hline
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================================
+% CHAPTER 4: DEPLOYMENT DOCUMENTATION DELIVERY
+% ============================================================================
+\chapter{Deployment Documentation Delivery}
+
+\section{Local Deployment Instructions}
+
+Detailed local setup is provided in \texttt{docs/local-setup.md}. Key workflow:
+
+\begin{enumerate}
+	\item Install prerequisites (Go, Node.js, PostgreSQL, PostGIS).
+	\item Configure environment via root \texttt{.env}.
+	\item Initialize databases with \texttt{scripts/setup-db.sql}.
+	\item Start backend services and frontend.
+\end{enumerate}
+
+\begin{lstlisting}[language=bash, caption=Single Command Local Startup, numbers=none]
+bash scripts/run-dev.sh
+\end{lstlisting}
+
+\section{Cloud Deployment Instructions}
+
+Hosted deployment is documented in \texttt{docs/deployment.md} with Render Blueprint support from \texttt{render.yaml}. The blueprint provisions five free-tier backend services:
+
+\begin{itemize}
+	\item \texttt{eds-auth}
+	\item \texttt{eds-incident}
+	\item \texttt{eds-dispatch}
+	\item \texttt{eds-analytics}
+	\item \texttt{eds-realtime-gateway}
+\end{itemize}
+
+\section{Environment and Infrastructure Notes}
+
+\begin{itemize}
+	\item RabbitMQ connectivity is configured via \texttt{RABBITMQ\_URL}.
+	\item Separate database environment variables are defined per service.
+	\item PostGIS activation is handled by startup logic in incident and dispatch services.
+	\item CORS and WebSocket origins are configurable for frontend-hosted domains.
+\end{itemize}
+
+\section{Deployment Verification}
+
+Each service provides a health endpoint for post-deploy checks:
+
+\begin{lstlisting}[language=bash, caption=Health Verification Endpoints, numbers=none]
+https://eds-auth.onrender.com/health
+https://eds-incident.onrender.com/health
+https://eds-dispatch.onrender.com/health
+https://eds-analytics.onrender.com/health
+https://eds-realtime-gateway.onrender.com/health
+https://emergency-dispatch-system.vercel.app/
+\end{lstlisting}
+
+\newpage
+
+% ============================================================================
+% CHAPTER 5: DEMONSTRATION PACKAGE
+% ============================================================================
+\chapter{Demonstration Package}
+
+\section{Demonstration Video Link (Placeholder)}
+
+Insert final demonstration video URL after upload:
+
+\begin{lstlisting}[language=bash, caption=Video Link Placeholder, numbers=none]
+https://drive.google.com/<replace-with-final-demo-video-link>
+\end{lstlisting}
+
+\section{Live Verification Artifact}
+
+The repository includes \texttt{verify_dispatch.py}, which validates proximity-based assignment by creating an incident near a known available ambulance and confirming expected dispatch behavior.
+
+\begin{lstlisting}[language=python, caption=Expected Verification Output Excerpt]
+Creating incident near Ambulance 1 at (...)
+Incident created: <uuid>
+Assigned Unit: <uuid> (Type: ambulance)
+SUCCESS: Correctly assigned nearest ambulance (Ambulance 1)
+\end{lstlisting}
+
+\section{Demonstration Checklist}
+
+Before recording, verify:
+
+\begin{itemize}
+	\item All services return \texttt{status: ok} on \texttt{/health}.
+	\item Frontend loads successfully at \texttt{https://emergency-dispatch-system.vercel.app/}.
+	\item Swagger UI is reachable from backend services.
+	\item RabbitMQ events are consumed by analytics and realtime gateway.
+	\item Incident creation triggers assignment and visible dashboard updates.
+\end{itemize}
+
+\newpage
+
+% ============================================================================
+% CHAPTER 6: FINAL COMPLIANCE SUMMARY
+% ============================================================================
+\chapter{Final Compliance Summary}
+
+\section{Phase 4 Requirement Mapping}
+
+\begin{table}[H]
+\centering\small
+\caption{Deliverable Compliance Matrix}
+\begin{tabular}{|p{5.1cm}|p{8.3cm}|}
+\hline
+\textbf{Required Deliverable} & \textbf{Submission Evidence} \\
+\hline
+Complete source code for all microservices & \texttt{services/} contains auth, incident, dispatch, analytics, realtime-gateway with full runnable code \\
+\hline
+API documentation (Swagger or Postman) & \texttt{docs/openapi.yaml}, \texttt{docs/postman\_collection.json}, and service-level \texttt{/swagger} routes \\
+\hline
+Deployment instructions & \texttt{docs/local-setup.md}, \texttt{docs/deployment.md}, \texttt{render.yaml}, startup scripts \\
+\hline
+5-minute demonstration video & Placeholder link included in this report; replace with final Google Drive URL before submission \\
+\hline
+\end{tabular}
+\end{table}
+
+\section{Conclusion}
+
+Phase 4 finalizes the National Emergency Response and Dispatch Platform with complete code delivery, executable API documentation, reproducible deployment instructions, and a structured demonstration plan. The project now satisfies the full four-phase timeline from design through implementation, interface delivery, and submission-quality operational documentation.
+
+\end{document}
